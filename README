@@ -1,0 +1,95 @@
+NAME
+    Scalar::Vec::Util - Utility routines for vec strings.
+
+VERSION
+    Version 0.01
+
+SYNOPSIS
+        use Scalar::Vec::Util qw/vfill vcopy veq/;
+
+        my $s;
+        vfill $s, 0, 100, 1; # Fill with 100 bits 1 starting at 0.
+        my $t;
+        vcopy $s, 20, $t, 10, 30; # Copy 30 bits from $s, starting at 20,
+                                  #                to $t, starting at 10.
+        vcopy $t, 10, $t, 20, 30; # Overalapping areas DWIM.
+        if (veq $t, 10, $t, 20, 30) { ... } # Yes, they are equal now.
+
+DESCRIPTION
+    A set of utilities to manipulate bits in vec strings. Highly optimized
+    XS routines are used when available, but straightforward pure perl
+    replacements are also provided for platforms without a C compiler.
+
+    This module doesn't reimplement bit vectors. It can be used on the very
+    same scalars that "vec" builds, or actually on any Perl string
+    ("SVt_PV").
+
+CONSTANTS
+  "SVU_PP"
+    True when pure perl fallbacks are used instead of XS functions.
+
+  "SVU_SIZE"
+    Size in bits of the unit used for moves. The higher this value is, the
+    faster the XS functions are. It's usually "CHAR_BIT *
+    $Config{alignbytes}", except on non-little-endian architectures where it
+    currently falls back to "CHAR_BIT" (e.g. SPARC).
+
+FUNCTIONS
+  "vfill $vec, $start, $length, $bit"
+    Starting at $start in $vec, fills $length bits with $bit. Grows $vec if
+    necessary.
+
+  "vcopy $from => $from_start, $to => $to_start, $length"
+    Copies $length bits starting at $from_start in $from to $to_start in
+    $to. If "$from_start + $length" is too long for $from, zeros are copied
+    past $length. Grows $to if necessary.
+
+  "veq $v1 => $v1_start, $v2 => $v2_start, $length"
+    Returns true if the $length bits starting at $v1_start in $v1 and
+    $v2_start in $v2 are equal, and false otherwise. If needed, $length is
+    decreased to fit inside $v1 and $v2 boundaries.
+
+EXPORT
+    The functions "vfill", "vcopy" and "veq" are only exported on request.
+    All of them are exported by the tags ':funcs' and ':all'.
+
+    The constants "SVU_PP" and "SVU_SIZE" are also only exported on request.
+    They are all exported by the tags ':consts' and ':all'.
+
+CAVEATS
+    Please report architectures where we can't use the alignment as the move
+    unit. I'll add exceptions for them.
+
+DEPENDENCIES
+    Carp, Exporter (core modules since perl 5), XSLoader (since perl 5.006).
+
+SEE ALSO
+    Bit::Vector gives a complete reimplementation of bit vectors.
+
+AUTHOR
+    Vincent Pit, "<perl at profvince.com>", <http://www.profvince.com>.
+
+    You can contact me by mail or on #perl @ FreeNode (vincent or
+    Prof_Vince).
+
+BUGS
+    Please report any bugs or feature requests to "bug-scalar-vec-util at
+    rt.cpan.org", or through the web interface at
+    <http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Scalar-Vec-Util>. I will
+    be notified, and then you'll automatically be notified of progress on
+    your bug as I make changes.
+
+SUPPORT
+    You can find documentation for this module with the perldoc command.
+
+        perldoc Scalar::Vec::Util
+
+    Tests code coverage report is available at
+    <http://www.profvince.com/perl/cover/Scalar-Vec-Util>.
+
+COPYRIGHT & LICENSE
+    Copyright 2008 Vincent Pit, all rights reserved.
+
+    This program is free software; you can redistribute it and/or modify it
+    under the same terms as Perl itself.
+
