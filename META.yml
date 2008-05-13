@@ -1,6 +1,6 @@
 --- #YAML:1.0
 name:                Scalar-Vec-Util
-version:             0.01
+version:             0.02
 abstract:            Utility routines for vec strings.
 license:             perl
 author:              
@@ -17,4 +17,5 @@ meta-spec:
 build_requires:
     Config:                        0
     ExtUtils::MakeMaker:           0
+    File::Spec:                    0
     Test::More:                    0

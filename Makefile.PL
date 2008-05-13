@@ -1,3 +1,5 @@
+use 5.006;
+
 use strict;
 use warnings;
 use ExtUtils::MakeMaker;
@@ -37,14 +39,15 @@ my $arch = $Config{archname} || '';
 my ($cpu) = $arch =~ /^([^-]+)/;
 
 my @DEFINES;
-my $unit;
+my $unit = 8;
 if (unpack("h*", pack("s", 0x1234)) != 4321) {
  print "Forcing unit size of 8 on non-little-endian systems.\n";
- $unit = 8;
 } else {
  my $align = int($Config{alignbytes} || 0);
  print "Checking unit size in bits... ";
- for (8, 16, 32, 64) {
+ my @s = (8, 16, 32);
+ push @s, 64 unless $^O eq 'MSWin32';
+ for (@s) {
   my $size = int($Config{'u' . $_ . 'size'} || 0);
   $unit = $_ if $size && $size <= $align;
  }
@@ -58,6 +61,7 @@ push @DEFINES, DEFINE => '-DBV_UNIT="'
 my $BUILD_REQUIRES = {
  'Config'              => 0,
  'ExtUtils::MakeMaker' => 0,
+ 'File::Spec'          => 0,
  'Test::More'          => 0,
 };
 

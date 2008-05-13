@@ -1,5 +1,10 @@
 Revision history for Scalar-Vec-Util
 
+0.02    2008-05-13 16:40 UTC
+        + Chg : Don't smoke this on 5.005 please.
+        + Fix : File::Spec is a build dependency.
+        + Fix : No 64 bits for Win32 (yet).
+
 0.01    2008-05-08 17:15 UTC
         First version, released on an unsuspecting world.
 
