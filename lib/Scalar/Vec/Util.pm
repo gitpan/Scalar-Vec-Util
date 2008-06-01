@@ -11,13 +11,13 @@ Scalar::Vec::Util - Utility routines for vec strings.
 
 =head1 VERSION
 
-Version 0.02
+Version 0.03
 
 =cut
 
 our $VERSION;
 BEGIN {
- $VERSION = '0.02';
+ $VERSION = '0.03';
  eval {
   require XSLoader;
   XSLoader::load(__PACKAGE__, $VERSION);
@@ -132,6 +132,42 @@ our %EXPORT_TAGS    = (
 );
 our @EXPORT_OK      = map { @$_ } values %EXPORT_TAGS;
 $EXPORT_TAGS{'all'} = [ @EXPORT_OK ];
+
+=head1 BENCHMARKS
+
+The following timings were obtained by running the C<samples/bench.pl> script with perl 5.8.8 on a Core 2 Duo 2.66GHz machine. The C<_pp> entries are the pure Perl versions, while C<_bv> are L<Bit::Vector> versions.
+
+=over 4
+
+=item Filling bits at a given position :
+
+                  Rate vfill_pp vfill_bv    vfill
+    vfill_pp    80.3/s       --    -100%    -100%
+    vfill_bv 1053399/s 1312401%       --     -11%
+    vfill    1180792/s 1471129%      12%       --
+
+=item Copying bits from a bit vector to a different one :
+
+                 Rate vcopy_pp vcopy_bv    vcopy
+    vcopy_pp    112/s       --    -100%    -100%
+    vcopy_bv  62599/s   55622%       --     -89%
+    vcopy    558491/s  497036%     792%       --
+
+=item Moving bits in the same bit vector from a given position to a different one :
+
+                 Rate vmove_pp vmove_bv    vmove
+    vmove_pp   64.8/s       --    -100%    -100%
+    vmove_bv  64742/s   99751%       --     -88%
+    vmove    547980/s  845043%     746%       --
+
+=item Testing bit equality from different positions of different bit vectors :
+
+               Rate  veq_pp  veq_bv     veq
+    veq_pp   92.7/s      --   -100%   -100%
+    veq_bv  32777/s  35241%      --    -94%
+    veq    505828/s 545300%   1443%      --
+
+=back
 
 =head1 CAVEATS
 

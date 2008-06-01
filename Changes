@@ -1,5 +1,9 @@
 Revision history for Scalar-Vec-Util
 
+0.03    2008-06-01 12:30 UTC
+        + Chg : samples/bench.pl now compares with Bit::Vector when available.
+        + Doc : Show the benchmark.
+
 0.02    2008-05-13 16:40 UTC
         + Chg : Don't smoke this on 5.005 please.
         + Fix : File::Spec is a build dependency.
