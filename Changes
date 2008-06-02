@@ -1,5 +1,9 @@
 Revision history for Scalar-Vec-Util
 
+0.04    2008-06-02 20:40 UTC
+        + Doc : More benchmarks.
+        + Fix : t/02-pp.t failed when the tested version was already installed.
+
 0.03    2008-06-01 12:30 UTC
         + Chg : samples/bench.pl now compares with Bit::Vector when available.
         + Doc : Show the benchmark.

@@ -3,9 +3,16 @@
 use strict;
 use warnings;
 
+use Config qw/%Config/;
+
 use Test::More tests => 4;
 
-BEGIN { @INC = grep !/arch$/, @INC }
+BEGIN {
+ my $re = join '|',
+           grep defined && length,
+            @Config{qw/myarchname archname/}, 'arch';
+ @INC = grep !/(?:$re)$/, @INC
+}
 use Scalar::Vec::Util qw/vfill vcopy veq SVU_PP/;
 
 is(SVU_PP, 1, 'using pure perl subroutines');

@@ -11,13 +11,13 @@ Scalar::Vec::Util - Utility routines for vec strings.
 
 =head1 VERSION
 
-Version 0.03
+Version 0.04
 
 =cut
 
 our $VERSION;
 BEGIN {
- $VERSION = '0.03';
+ $VERSION = '0.04';
  eval {
   require XSLoader;
   XSLoader::load(__PACKAGE__, $VERSION);
@@ -135,37 +135,79 @@ $EXPORT_TAGS{'all'} = [ @EXPORT_OK ];
 
 =head1 BENCHMARKS
 
-The following timings were obtained by running the C<samples/bench.pl> script with perl 5.8.8 on a Core 2 Duo 2.66GHz machine. The C<_pp> entries are the pure Perl versions, while C<_bv> are L<Bit::Vector> versions.
+The following timings were obtained by running the C<samples/bench.pl> script. The C<_pp> entries are the pure Perl versions, while C<_bv> are L<Bit::Vector> versions.
 
 =over 4
 
-=item Filling bits at a given position :
+=item This is for perl 5.8.8 on a Core 2 Duo 2.66GHz machine (unit is 64 bits).
 
+    Filling bits at a given position :
                   Rate vfill_pp vfill_bv    vfill
     vfill_pp    80.3/s       --    -100%    -100%
     vfill_bv 1053399/s 1312401%       --     -11%
     vfill    1180792/s 1471129%      12%       --
 
-=item Copying bits from a bit vector to a different one :
-
+    Copying bits from a bit vector to a different one :
                  Rate vcopy_pp vcopy_bv    vcopy
     vcopy_pp    112/s       --    -100%    -100%
     vcopy_bv  62599/s   55622%       --     -89%
     vcopy    558491/s  497036%     792%       --
 
-=item Moving bits in the same bit vector from a given position to a different one :
-
+    Moving bits in the same bit vector from a given position to a different one :
                  Rate vmove_pp vmove_bv    vmove
     vmove_pp   64.8/s       --    -100%    -100%
     vmove_bv  64742/s   99751%       --     -88%
     vmove    547980/s  845043%     746%       --
 
-=item Testing bit equality from different positions of different bit vectors :
-
+    Testing bit equality from different positions of different bit vectors :
                Rate  veq_pp  veq_bv     veq
     veq_pp   92.7/s      --   -100%   -100%
     veq_bv  32777/s  35241%      --    -94%
     veq    505828/s 545300%   1443%      --
+
+=item This is for perl 5.10.0 on a Pentium 4 3.0GHz (unit is 32 bits).
+
+                 Rate vfill_pp vfill_bv    vfill
+    vfill_pp    185/s       --    -100%    -100%
+    vfill_bv 407979/s  220068%       --     -16%
+    vfill    486022/s  262184%      19%       --
+
+                 Rate vcopy_pp vcopy_bv    vcopy
+    vcopy_pp   61.5/s       --    -100%    -100%
+    vcopy_bv  32548/s   52853%       --     -83%
+    vcopy    187360/s  304724%     476%       --
+
+                 Rate vmove_pp vmove_bv    vmove
+    vmove_pp   63.1/s       --    -100%    -100%
+    vmove_bv  32829/s   51933%       --     -83%
+    vmove    188572/s  298787%     474%       --
+
+               Rate  veq_pp  veq_bv     veq
+    veq_pp   34.2/s      --   -100%   -100%
+    veq_bv  17518/s  51190%      --    -91%
+    veq    192181/s 562591%    997%      --
+
+=item This is for perl 5.10.0 on an UltraSPARC-IIi (unit is 8 bits).
+
+                Rate vfill_pp    vfill vfill_bv
+    vfill_pp  4.23/s       --    -100%    -100%
+    vfill    30039/s  709283%       --     -17%
+    vfill_bv 36022/s  850568%      20%       --
+
+                Rate vcopy_pp vcopy_bv    vcopy
+    vcopy_pp  2.74/s       --    -100%    -100%
+    vcopy_bv  8146/s  297694%       --     -60%
+    vcopy    20266/s  740740%     149%       --
+
+                Rate vmove_pp vmove_bv    vmove
+    vmove_pp  2.66/s       --    -100%    -100%
+    vmove_bv  8274/s  311196%       --     -59%
+    vmove    20287/s  763190%     145%       --
+
+              Rate  veq_pp  veq_bv     veq
+    veq_pp  7.33/s      --   -100%   -100%
+    veq_bv  2499/s  33978%      --    -87%
+    veq    19675/s 268193%    687%      --
 
 =back
 
