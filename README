@@ -2,7 +2,7 @@ NAME
     Scalar::Vec::Util - Utility routines for vec strings.
 
 VERSION
-    Version 0.04
+    Version 0.05
 
 SYNOPSIS
         use Scalar::Vec::Util qw/vfill vcopy veq/;

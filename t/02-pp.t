@@ -11,9 +11,12 @@ BEGIN {
  my $re = join '|',
            grep defined && length,
             @Config{qw/myarchname archname/}, 'arch';
- @INC = grep !/(?:$re)$/, @INC
+ my @inc = @INC;
+ @INC = grep !/(?:$re)$/, @INC;
+ require Scalar::Vec::Util;
+ Scalar::Vec::Util->import(qw/vfill vcopy veq SVU_PP/);
+ @INC = @inc;
 }
-use Scalar::Vec::Util qw/vfill vcopy veq SVU_PP/;
 
 is(SVU_PP, 1, 'using pure perl subroutines');
 for (qw/vfill vcopy veq/) {

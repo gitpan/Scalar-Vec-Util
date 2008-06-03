@@ -1,5 +1,8 @@
 Revision history for Scalar-Vec-Util
 
+0.05    2008-06-03 11:40 UTC
+        + Fix : make cover choked on t/02-pp.t.
+
 0.04    2008-06-02 20:40 UTC
         + Doc : More benchmarks.
         + Fix : t/02-pp.t failed when the tested version was already installed.

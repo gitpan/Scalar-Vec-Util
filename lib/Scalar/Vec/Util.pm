@@ -11,13 +11,13 @@ Scalar::Vec::Util - Utility routines for vec strings.
 
 =head1 VERSION
 
-Version 0.04
+Version 0.05
 
 =cut
 
 our $VERSION;
 BEGIN {
- $VERSION = '0.04';
+ $VERSION = '0.05';
  eval {
   require XSLoader;
   XSLoader::load(__PACKAGE__, $VERSION);
