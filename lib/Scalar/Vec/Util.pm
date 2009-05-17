@@ -11,23 +11,23 @@ Scalar::Vec::Util - Utility routines for vec strings.
 
 =head1 VERSION
 
-Version 0.05
+Version 0.06
 
 =cut
 
 our $VERSION;
 BEGIN {
- $VERSION = '0.05';
+ $VERSION = '0.06';
  eval {
   require XSLoader;
   XSLoader::load(__PACKAGE__, $VERSION);
   1;
  } or do {
-  sub SVU_PP   () { 1 }
-  sub SVU_SIZE () { 1 }
-  *vfill = *vfill_pp;
-  *vcopy = *vcopy_pp;
-  *veq   = *veq_pp;
+  *SVU_PP   = sub () { 1 };
+  *SVU_SIZE = sub () { 1 };
+  *vfill    = *vfill_pp;
+  *vcopy    = *vcopy_pp;
+  *veq      = *veq_pp;
  }
 }
 
@@ -45,9 +45,11 @@ BEGIN {
 
 =head1 DESCRIPTION
 
-A set of utilities to manipulate bits in vec strings. Highly optimized XS routines are used when available, but straightforward pure perl replacements are also provided for platforms without a C compiler.
+A set of utilities to manipulate bits in vec strings.
+Highly optimized XS routines are used when available, but straightforward pure perl replacements are also provided for platforms without a C compiler.
 
-This module doesn't reimplement bit vectors. It can be used on the very same scalars that C<vec> builds, or actually on any Perl string (C<SVt_PV>).
+This module doesn't reimplement bit vectors.
+It can be used on the very same scalars that C<vec> builds, or actually on any Perl string (C<SVt_PV>).
 
 =head1 CONSTANTS
 
@@ -57,39 +59,51 @@ True when pure perl fallbacks are used instead of XS functions.
 
 =head2 C<SVU_SIZE>
 
-Size in bits of the unit used for moves. The higher this value is, the faster the XS functions are. It's usually C<CHAR_BIT * $Config{alignbytes}>, except on non-little-endian architectures where it currently falls back to C<CHAR_BIT> (e.g. SPARC).
+Size in bits of the unit used for moves.
+The higher this value is, the faster the XS functions are.
+It's usually C<CHAR_BIT * $Config{alignbytes}>, except on non-little-endian architectures where it currently falls back to C<CHAR_BIT> (e.g. SPARC).
 
 =head1 FUNCTIONS
 
 =head2 C<vfill $vec, $start, $length, $bit>
 
-Starting at C<$start> in C<$vec>, fills C<$length> bits with C<$bit>. Grows C<$vec> if necessary.
+Starting at C<$start> in C<$vec>, fills C<$length> bits with C<$bit>.
+Grows C<$vec> if necessary.
 
 =cut
 
-sub _alldef {
- for (@_) { return 0 unless defined }
- return 1;
-}
-
-sub vfill_pp {
- (undef, my $s, my $l, my $x) = @_;
- croak "Invalid argument" unless _alldef @_;
+sub vfill_pp ($$$$) {
+ my ($s, $l, $x) = @_[1 .. 3];
  return unless $l;
- $x = 1 if $x;
- vec($_[0], $_, 1) = $x for $s .. $s + $l - 1;
+ croak 'Invalid negative offset' if $s < 0;
+ croak 'Invalid negative length' if $l < 0;
+ $x = ~0 if $x;
+ my $SIZE = 32;
+ my $t = int($s / $SIZE) + 1;
+ my $u = int(($s + $l) / $SIZE);
+ if ($SIZE * $t < $s + $l) { # implies $t <= $u
+  vec($_[0], $_, 1)     = $x for $s .. $SIZE * $t - 1;
+  vec($_[0], $_, $SIZE) = $x for $t .. $u - 1;
+  vec($_[0], $_, 1)     = $x for $SIZE * $u .. $s + $l - 1;
+ } else {
+  vec($_[0], $_, 1) = $x for $s .. $s + $l - 1;
+ }
 }
 
 =head2 C<< vcopy $from => $from_start, $to => $to_start, $length >>
 
-Copies C<$length> bits starting at C<$from_start> in C<$from> to C<$to_start> in C<$to>. If C<$from_start + $length> is too long for C<$from>, zeros are copied past C<$length>. Grows C<$to> if necessary.
+Copies C<$length> bits starting at C<$from_start> in C<$from> to C<$to_start> in C<$to>.
+If C<$from_start + $length> is too long for C<$from>, zeros are copied past C<$length>.
+Grows C<$to> if necessary.
+Doesn't need to allocate any extra memory.
 
 =cut
 
-sub vcopy_pp {
+sub vcopy_pp ($$$$$) {
  my ($fs, $ts, $l) = @_[1, 3, 4];
- croak "Invalid argument" unless _alldef @_;
  return unless $l;
+ croak 'Invalid negative offset' if $fs < 0 or $ts < 0;
+ croak 'Invalid negative length' if $l  < 0;
  my $step = $ts - $fs;
  if ($step <= 0) { 
   vec($_[2], $_ + $step, 1) = vec($_[0], $_, 1) for $fs .. $fs + $l - 1;
@@ -98,15 +112,83 @@ sub vcopy_pp {
  }
 }
 
-=head2 C<< veq $v1 => $v1_start, $v2 => $v2_start, $length >>
+=head2 C<< vshift $v, $start, $length => $bits [, $insert ] >>
 
-Returns true if the C<$length> bits starting at C<$v1_start> in C<$v1> and C<$v2_start> in C<$v2> are equal, and false otherwise. If needed, C<$length> is decreased to fit inside C<$v1> and C<$v2> boundaries.
+In the area starting at C<$start> and of length C<$length> in C<$v>, shift bits C<abs $bits> positions left if C<< $bits > 0 >> and right otherwise.
+If C<$insert> is defined, also fills the resulting gap with ones if C<$insert> is true and zeros if it's false.
+Bits outside of the specified area are left untouched.
+Doesn't need to allocate any extra memory.
 
 =cut
 
-sub veq_pp {
+sub vshift ($$$$;$) {
+ my ($start, $length, $bits, $insert) = @_[1 .. 4];
+ return unless $length and $bits;
+ croak 'Invalid negative offset' if $start  < 0;
+ croak 'Invalid negative length' if $length < 0;
+ my $left = 1;
+ if ($bits < 0) {
+  $left = 0;
+  $bits = -$bits;
+ }
+ if ($bits < $length) {
+  $length -= $bits;
+  if ($left) {
+   vcopy($_[0], $start, $_[0], $start + $bits, $length);
+   vfill($_[0], $start, $bits, $insert) if defined $insert;
+  } else {
+   vcopy($_[0], $start + $bits, $_[0], $start, $length);
+   vfill($_[0], $start + $length, $bits, $insert) if defined $insert;
+  }
+ } else {
+  vfill($_[0], $start, $length, $insert) if defined $insert;
+ }
+}
+
+=head2 C<< vrot $v, $start, $length, $bits >>
+
+In the area starting at C<$start> and of length C<$length> in C<$v>, rotates bits C<abs $bits> positions left if C<< $bits > 0 >> and right otherwise.
+Bits outside of the specified area are left untouched.
+Currently allocates an extra buffer of size C<O($bits)>.
+
+=cut
+
+sub vrot ($$$$) {
+ my ($start, $length, $bits) = @_[1 .. 3];
+ return unless $length and $bits;
+ croak 'Invalid negative offset' if $start  < 0;
+ croak 'Invalid negative length' if $length < 0;
+ my $left = 1;
+ if ($bits < 0) {
+  $left = 0;
+  $bits = -$bits;
+ }
+ $bits %= $length;
+ return unless $bits;
+ $length -= $bits;
+ my $buf = '';
+ if ($left) {
+  vcopy($_[0], $start + $length, $buf,  0,              $bits);
+  vcopy($_[0], $start,           $_[0], $start + $bits, $length);
+  vcopy($buf,  0,                $_[0], $start,         $bits);
+ } else {
+  vcopy($_[0], $start,           $buf,  0,                $bits);
+  vcopy($_[0], $start + $bits,   $_[0], $start,           $length);
+  vcopy($buf,  0,                $_[0], $start + $length, $bits);
+ }
+}
+
+=head2 C<< veq $v1 => $v1_start, $v2 => $v2_start, $length >>
+
+Returns true if the C<$length> bits starting at C<$v1_start> in C<$v1> and C<$v2_start> in C<$v2> are equal, and false otherwise.
+If needed, C<$length> is decreased to fit inside C<$v1> and C<$v2> boundaries.
+
+=cut
+
+sub veq_pp ($$$$$) {
  my ($s1, $s2, $l) = @_[1, 3, 4];
- croak "Invalid argument" unless _alldef @_;
+ croak 'Invalid negative offset' if $s1 < 0 or $s2 < 0;
+ croak 'Invalid negative length' if $l  < 0;
  my $i = 0;
  while ($i < $l) {
   return 0 if vec($_[0], $s1 + $i, 1) != vec($_[2], $s2 + $i, 1);
@@ -117,9 +199,11 @@ sub veq_pp {
 
 =head1 EXPORT
 
-The functions L</vfill>, L</vcopy> and L</veq> are only exported on request. All of them are exported by the tags C<':funcs'> and C<':all'>.
+The functions L</vfill>, L</vcopy>, L</vshift>, L</vrot> and L</veq> are only exported on request.
+All of them are exported by the tags C<':funcs'> and C<':all'>.
 
-The constants L</SVU_PP> and L</SVU_SIZE> are also only exported on request. They are all exported by the tags C<':consts'> and C<':all'>.
+The constants L</SVU_PP> and L</SVU_SIZE> are also only exported on request.
+They are all exported by the tags C<':consts'> and C<':all'>.
 
 =cut
 
@@ -127,7 +211,7 @@ use base qw/Exporter/;
 
 our @EXPORT         = ();
 our %EXPORT_TAGS    = (
- 'funcs'  => [ qw/vfill vcopy veq/ ],
+ 'funcs'  => [ qw/vfill vcopy vshift vrot veq/ ],
  'consts' => [ qw/SVU_PP SVU_SIZE/ ]
 );
 our @EXPORT_OK      = map { @$_ } values %EXPORT_TAGS;
@@ -135,7 +219,8 @@ $EXPORT_TAGS{'all'} = [ @EXPORT_OK ];
 
 =head1 BENCHMARKS
 
-The following timings were obtained by running the C<samples/bench.pl> script. The C<_pp> entries are the pure Perl versions, while C<_bv> are L<Bit::Vector> versions.
+The following timings were obtained by running the C<samples/bench.pl> script.
+The C<_pp> entries are the pure Perl versions, whereas C<_bv> are L<Bit::Vector> versions.
 
 =over 4
 
@@ -213,7 +298,8 @@ The following timings were obtained by running the C<samples/bench.pl> script. T
 
 =head1 CAVEATS
 
-Please report architectures where we can't use the alignment as the move unit. I'll add exceptions for them.
+Please report architectures where we can't use the alignment as the move unit.
+I'll add exceptions for them.
 
 =head1 DEPENDENCIES
 
@@ -227,11 +313,12 @@ L<Bit::Vector> gives a complete reimplementation of bit vectors.
 
 Vincent Pit, C<< <perl at profvince.com> >>, L<http://www.profvince.com>.
 
-You can contact me by mail or on #perl @ FreeNode (vincent or Prof_Vince).
+You can contact me by mail or on C<irc.perl.org> (vincent).
 
 =head1 BUGS
 
-Please report any bugs or feature requests to C<bug-scalar-vec-util at rt.cpan.org>, or through the web interface at L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Scalar-Vec-Util>.  I will be notified, and then you'll automatically be notified of progress on your bug as I make changes.
+Please report any bugs or feature requests to C<bug-scalar-vec-util at rt.cpan.org>, or through the web interface at L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Scalar-Vec-Util>.
+I will be notified, and then you'll automatically be notified of progress on your bug as I make changes.
 
 =head1 SUPPORT
 
@@ -243,7 +330,7 @@ Tests code coverage report is available at L<http://www.profvince.com/perl/cover
 
 =head1 COPYRIGHT & LICENSE
 
-Copyright 2008 Vincent Pit, all rights reserved.
+Copyright 2008-2009 Vincent Pit, all rights reserved.
 
 This program is free software; you can redistribute it and/or modify it under the same terms as Perl itself.
 

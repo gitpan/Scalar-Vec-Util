@@ -1,21 +1,34 @@
 --- #YAML:1.0
-name:                Scalar-Vec-Util
-version:             0.05
-abstract:            Utility routines for vec strings.
-license:             perl
-author:              
+name:               Scalar-Vec-Util
+version:            0.06
+abstract:           Utility routines for vec strings.
+author:
     - Vincent Pit <perl@profvince.com>
-generated_by:        ExtUtils::MakeMaker version 6.44
-distribution_type:   module
-requires:     
-    Carp:                          0
-    Exporter:                      0
-    XSLoader:                      0
-meta-spec:
-    url:     http://module-build.sourceforge.net/META-spec-v1.3.html
-    version: 1.3
+license:            perl
+distribution_type:  module
+configure_requires:
+    Config:               0
+    ExtUtils::MakeMaker:  0
+    File::Spec:           0
 build_requires:
-    Config:                        0
-    ExtUtils::MakeMaker:           0
-    File::Spec:                    0
-    Test::More:                    0
+    Config:               0
+    ExtUtils::MakeMaker:  0
+    Test::More:           0
+requires:
+    Carp:      0
+    Exporter:  0
+    perl:      5.006
+    XSLoader:  0
+resources:
+    bugtracker:  http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Scalar-Vec-Util
+    homepage:    http://search.cpan.org/dist/Scalar-Vec-Util/
+    license:     http://dev.perl.org/licenses/
+    repository:  http://git.profvince.com/?p=perl%2Fmodules%2FScalar-Vec-Util.git
+no_index:
+    directory:
+        - t
+        - inc
+generated_by:       ExtUtils::MakeMaker version 6.50
+meta-spec:
+    url:      http://module-build.sourceforge.net/META-spec-v1.4.html
+    version:  1.4

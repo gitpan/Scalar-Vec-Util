@@ -7,14 +7,12 @@ use Test::More 'no_plan';
 
 use Scalar::Vec::Util qw/vfill SVU_SIZE/;
 
-eval { vfill undef, 0, 0, 0 };
-like($@, qr/Invalid\s+argument/, 'first argument undef croaks');
-eval { vfill my $x, undef, 0, 0 };
-like($@, qr/Invalid\s+argument/, 'second argument undef croaks');
-eval { vfill my $x, 0, undef, 0 };
-like($@, qr/Invalid\s+argument/, 'third argument undef croaks');
-eval { vfill my $x, 0, 0, undef };
-like($@, qr/Invalid\s+argument/, 'fourth argument undef croaks');
+for ([ 1, 'offset', -1 ], [ 2, 'length', '-1' ]) {
+ my @args  = (~0) x 4;
+ $args[$_->[0]] = $_->[2];
+ eval { &vfill(@args) }; my $line = __LINE__;
+ like $@, qr/^Invalid\s+negative\s+$_->[1]\s+at\s+\Q$0\E\s+line\s+$line/;
+}
 
 my $p = SVU_SIZE;
 $p = 8 if $p < 8;

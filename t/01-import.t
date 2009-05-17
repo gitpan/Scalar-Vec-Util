@@ -3,11 +3,22 @@
 use strict;
 use warnings;
 
-use Test::More tests => 5;
+use Test::More tests => 2 * 7;
 
 require Scalar::Vec::Util;
 
-for (qw/vfill vcopy veq SVU_PP SVU_SIZE/) {
+my %syms = (
+ vfill    => '$$$$',
+ vcopy    => '$$$$$',
+ veq      => '$$$$$',
+ vshift   => '$$$$;$',
+ vrot     => '$$$$',
+ SVU_PP   => '',
+ SVU_SIZE => '',
+);
+
+for (keys %syms) {
  eval { Scalar::Vec::Util->import($_) };
- ok(!$@, 'import ' . $_);
+ is $@,            '',        "import $_";
+ is prototype($_), $syms{$_}, "prototype $_";
 }

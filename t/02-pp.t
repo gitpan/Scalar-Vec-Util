@@ -8,15 +8,16 @@ use Config qw/%Config/;
 use Test::More tests => 4;
 
 BEGIN {
- my $re = join '|',
-           grep defined && length,
-            @Config{qw/myarchname archname/}, 'arch';
- my @inc = @INC;
- @INC = grep !/(?:$re)$/, @INC;
- require Scalar::Vec::Util;
- Scalar::Vec::Util->import(qw/vfill vcopy veq SVU_PP/);
- @INC = @inc;
+ require XSLoader;
+ my $xsloader_load_orig = \&XSLoader::load;
+ no warnings 'redefine';
+ *XSLoader::load = sub {
+  die if $_[0] eq 'Scalar::Vec::Util';
+  goto $xsloader_load_orig;
+ };
 }
+
+use Scalar::Vec::Util qw/vfill vcopy veq SVU_PP/;
 
 is(SVU_PP, 1, 'using pure perl subroutines');
 for (qw/vfill vcopy veq/) {

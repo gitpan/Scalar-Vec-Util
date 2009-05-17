@@ -21,40 +21,65 @@
 /* 0 <  I <= CHAR_BIT * sizeof(T) */
 #define BV_MASK_HIGHER(T, I) ((~((T) 0)) << (BITS(T) - (I)))
 
-#define BV_DO_ALIGNED(T, A)                \
- mask = BV_MASK_HIGHER(T, BITS(T) - fs);   \
- if (fs + l <= BITS(T)) {                  \
-  if (fs + l < BITS(T)) {                  \
-   /* Branching is apparently useless,     \
-    * but since we can't portably shift    \
-    * CHAR_BITS from a char...             \
-    * Actually, we only copy up to this */ \
-   mask &= BV_MASK_LOWER(T, fs + l);       \
-  }                                        \
-  *t = (*t & ~mask) | (*f & mask);         \
- } else {                                  \
-  size_t lo, lk;                           \
-  *t = (*t & ~mask) | (*f & mask);         \
-  ++t;                                     \
-  ++f;                                     \
-  l -= (BITS(T) - ts);                     \
-  lo = l % BITS(T);                        \
-  lk = l / BITS(T);                        \
-  BV_##A##_UNIT_ALIGNED(T, t, f, lk);      \
-  if (lo) {                                \
-   mask = BV_MASK_LOWER(T, lo);            \
-   t[lk] = (t[lk] & ~mask)                 \
-         | (f[lk] & mask);                 \
-  }                                        \
+#define BV_DO_ALIGNED_FORWARD(T, A)       \
+ mask = BV_MASK_HIGHER(T, BITS(T) - fs);  \
+ if (fs + l <= BITS(T)) {                 \
+  /* Branching is apparently useless,     \
+   * but since we can't portably shift    \
+   * CHAR_BITS from a char...             \
+   * Actually, we only copy up to this */ \
+  if (fs + l < BITS(T))                   \
+   mask &= BV_MASK_LOWER(T, fs + l);      \
+  *t = (*t & ~mask) | (*f & mask);        \
+ } else {                                 \
+  size_t lo, lk;                          \
+  *t = (*t & ~mask) | (*f & mask);        \
+  ++t;                                    \
+  ++f;                                    \
+  l -= (BITS(T) - ts);                    \
+  lo = l % BITS(T);                       \
+  lk = l / BITS(T);                       \
+  BV_##A##_UNIT_ALIGNED(T, t, f, lk);     \
+  t += lk;                                \
+  f += lk;                                \
+  if (lo) {                               \
+   mask = BV_MASK_LOWER(T, lo);           \
+   *t = (*t & ~mask) | (*f & mask);       \
+  }                                       \
+ }
+
+#define BV_DO_ALIGNED_BACKWARD(T, A)         \
+ if (fs + l <= BITS(T)) {                    \
+  mask = BV_MASK_HIGHER(T, BITS(T) - fs);    \
+  /* Branching is apparently useless,        \
+   * but since we can't portably shift       \
+   * CHAR_BITS from a char...                \
+   * Actually, we only copy up to this */    \
+  if (fs + l < BITS(T))                      \
+   mask &= BV_MASK_LOWER(T, fs + l);         \
+  *t = (*t & ~mask) | (*f & mask);           \
+ } else {                                    \
+  size_t lo, lk;                             \
+  l -= (BITS(T) - ts);                       \
+  lo = l % BITS(T);                          \
+  lk = l / BITS(T);                          \
+  ++t;                                       \
+  ++f;                                       \
+  if (lo) {                                  \
+   mask = BV_MASK_LOWER(T, lo);              \
+   t[lk] = (t[lk] & ~mask) | (f[lk] & mask); \
+  }                                          \
+  BV_##A##_UNIT_ALIGNED(T, t, f, lk);        \
+  mask = BV_MASK_HIGHER(T, BITS(T) - fs);    \
+  t[-1] = (t[-1] & ~mask) | (f[-1] & mask);  \
  }
 
 #define BV_DO_LEFT_FORWARD(T, A)                        \
  step = ts - fs;                                        \
  mask = BV_MASK_HIGHER(T, BITS(T) - ts);                \
  if (ts + l <= BITS(T)) {                               \
-  if (ts + l < BITS(T)) {                               \
+  if (ts + l < BITS(T))                                 \
    mask &= BV_MASK_LOWER(T, ts + l);                    \
-  }                                                     \
   *t = (*t & ~mask) | ((*f & (mask >> step)) << step);  \
  } else {                                               \
   size_t pets = BITS(T) - step;                         \
@@ -89,9 +114,8 @@
  step = fs - ts;                                             \
  mask = BV_MASK_HIGHER(T, BITS(T) - fs);                     \
  if (fs + l <= BITS(T)) {                                    \
-  if (fs + l < BITS(T)) {                                    \
+  if (fs + l < BITS(T))                                      \
    mask &= BV_MASK_LOWER(T, fs + l);                         \
-  }                                                          \
   *t = (*t & ~(mask >> step)) | ((*f & mask) >> step);       \
  } else {                                                    \
   l  -= (BITS(T) - fs);                                      \
@@ -103,7 +127,8 @@
    BV_##A##_UNIT_RIGHT_FORWARD(T, t, f, step);               \
    ++t; ++f;                                                 \
   }                                                          \
-  if (!offset) { offset += BITS(T); }                        \
+  if (!offset)                                               \
+   offset += BITS(T);                                        \
   if (offset > step) {                                       \
    mask = BV_MASK_LOWER(T, offset - step);                   \
    *t = (*t & ~mask) | (ins & mask);                         \
@@ -119,9 +144,8 @@
  step = ts - fs;                                        \
  mask = BV_MASK_LOWER(T, BITS(T) - ts);                 \
  if (ts + l <= BITS(T)) {                               \
-  if (ts + l < BITS(T)) {                               \
+  if (ts + l < BITS(T))                                 \
    mask &= BV_MASK_HIGHER(T, ts + l);                   \
-  }                                                     \
   *t = (*t & ~mask) | ((*f & (mask << step)) >> step);  \
  } else {                                               \
   size_t pets = BITS(T) - step;                         \
@@ -156,21 +180,23 @@
  step = fs - ts;                                              \
  mask = BV_MASK_LOWER(T, BITS(T) - fs);                       \
  if (fs + l <= BITS(T)) {                                     \
-  if (fs + l < BITS(T)) {                                     \
+  if (fs + l < BITS(T))                                       \
    mask &= BV_MASK_HIGHER(T, fs + l);                         \
-  }                                                           \
   *t = (*t & ~(mask << step)) | ((*f & mask) << step);        \
  } else {                                                     \
   l  -= (BITS(T) - fs);                                       \
-  ins = ((*f & mask) << step) | (*t & BV_MASK_HIGHER(T, ts)); \
+  ins = ((*f & mask) << step);                                \
+  if (ts)                                                     \
+   ins |= (*t & BV_MASK_HIGHER(T, ts));                       \
   --f;                                                        \
   offset = l % BITS(T);                                       \
-  begin  = f - l / BITS(T) - (offset > step);                 \
-  while (f > begin) {                                         \
+  begin  = f - l / BITS(T) + (offset <= step);                \
+  while (f >= begin) {                                        \
    BV_##A##_UNIT_RIGHT_BACKWARD(T, t, f, step);               \
    --t; --f;                                                  \
   }                                                           \
-  if (!offset) { offset += BITS(T); }                         \
+  if (!offset)                                                \
+   offset += BITS(T);                                         \
   if (offset > step) {                                        \
    mask = BV_MASK_HIGHER(T, offset - step);                   \
    *t = (*t & ~mask) | (ins & mask);                          \
@@ -201,8 +227,8 @@ INLINE_DECLARE(void bv_copy(void *t_, size_t ts, const void *f_, size_t fs, size
 #ifdef INLINE_DEFINE
 {
  size_t offset, step;
- T ins, mask, *t = t_;
- const T *f = f_, *end;
+ T ins, mask, *t = (T *) t_;
+ const T *f = (const T *) f_, *end;
 
  t  += ts / BITS(T);
  ts %= BITS(T);
@@ -211,13 +237,14 @@ INLINE_DECLARE(void bv_copy(void *t_, size_t ts, const void *f_, size_t fs, size
  fs %= BITS(T);
 
  if (ts == fs) {
-  BV_DO_ALIGNED(T, COPY);
+  BV_DO_ALIGNED_FORWARD(T, COPY);
  } else if (ts < fs) {
   BV_DO_RIGHT_FORWARD(T, COPY);
  } else { /* ts > fs */
   BV_DO_LEFT_FORWARD(T, COPY);
  }
 
+ return;
 }
 #endif /* INLINE_DEFINE */
 #undef T
@@ -262,29 +289,34 @@ INLINE_DECLARE(void bv_move(void *bv_, size_t ts, size_t fs, size_t l))
 #ifdef INLINE_DEFINE
 {
  size_t to, fo, offset, step;
- T ins, tmp, mask, *bv = bv_, *t, *f;
+ T ins, tmp, mask, *bv = (T *) bv_, *t, *f;
  const T *begin, *end;
+
+ if (ts == fs)
+  return;
 
  to = ts % BITS(T);
  fo = fs % BITS(T);
 
- if (to == fo) {
+ if (ts < fs) {
   t  = bv + ts / BITS(T);
   ts = to;
   f  = bv + fs / BITS(T);
   fs = fo;
-  BV_DO_ALIGNED(T, MOVE);
- } else if (ts < fs) {
-  t  = bv + ts / BITS(T);
-  ts = to;
-  f  = bv + fs / BITS(T);
-  fs = fo;
-  if (ts < fs) {
+  if (ts == fs) {
+   BV_DO_ALIGNED_FORWARD(T, MOVE);
+  } else if (ts < fs) {
    BV_DO_RIGHT_FORWARD(T, MOVE);
   } else { /* ts > fs */
    BV_DO_LEFT_FORWARD(T, MOVE);
   }
- } else {  /* ts > fs */
+ } else if (to == fo) {
+  t  = bv + ts / BITS(T);
+  ts = to;
+  f  = bv + fs / BITS(T);
+  fs = fo;
+  BV_DO_ALIGNED_BACKWARD(T, MOVE);
+ } else { /* ts > fs */
   size_t z;
   BV_MOVE_INIT_REVERSE(T, t, ts);
   BV_MOVE_INIT_REVERSE(T, f, fs);
@@ -295,6 +327,7 @@ INLINE_DECLARE(void bv_move(void *bv_, size_t ts, size_t fs, size_t l))
   }
  }
 
+ return;
 }
 #endif /* INLINE_DEFINE */
 #undef T
@@ -302,7 +335,7 @@ INLINE_DECLARE(void bv_move(void *bv_, size_t ts, size_t fs, size_t l))
 /* ... Compare ............................................................. */
 
 #define BV_EQ(T, B1, B2) \
- if (((T) (B1)) != ((T) (B2))) { return 0; }
+ if (((T) (B1)) != ((T) (B2))) return 0;
 
 #define BV_EQ_MASK(T, B1, B2, M) BV_EQ(T, (B1) & (M), (B2) & (M))
 
@@ -331,7 +364,8 @@ INLINE_DECLARE(void bv_move(void *bv_, size_t ts, size_t fs, size_t l))
   ins = *(B2) >> (B);                                  \
   ++(B1); ++(B2);                                      \
  }                                                     \
- if (!offset) { offset += BITS(T); }                   \
+ if (!offset)                                          \
+  offset += BITS(T);                                   \
  if (offset >= (B)) {                                  \
   mask = BV_MASK_LOWER(T, offset - (B));               \
   BV_EQ_MASK(T, *(B1), ins, mask);                     \
@@ -347,7 +381,7 @@ INLINE_DECLARE(int bv_eq(const void *bv1_, size_t s1, const void *bv2_, size_t s
 {
  size_t offset, step;
  T ins, mask;
- const T *bv1 = bv1_, *bv2 = bv2_, *end;
+ const T *bv1 = (const T *) bv1_, *bv2 = (const T *) bv2_, *end;
 
  bv1 += s1 / BITS(T);
  s1  %= BITS(T);
@@ -364,7 +398,7 @@ INLINE_DECLARE(int bv_eq(const void *bv1_, size_t s1, const void *bv2_, size_t s
    }
    BV_EQ_MASK(T, *bv1, *bv2, mask);
   } else {
-   int ret = 0;
+   int ret;
    size_t lo, lk;
    BV_EQ_MASK(T, *bv1, *bv2, mask);
    ++bv1;
@@ -372,7 +406,8 @@ INLINE_DECLARE(int bv_eq(const void *bv1_, size_t s1, const void *bv2_, size_t s
    l -= (BITS(T) - s2);
    lo = l % BITS(T);
    lk = l / BITS(T);
-   if ((ret = memcmp(bv1, bv2, lk * sizeof(T))) != 0) { return 0; }
+   if ((ret = memcmp(bv1, bv2, lk * sizeof(T))) != 0)
+    return 0;
    if (lo) {
     mask = BV_MASK_LOWER(T, lo);
     BV_EQ_MASK(T, *bv1, *bv2, mask);
@@ -384,9 +419,8 @@ INLINE_DECLARE(int bv_eq(const void *bv1_, size_t s1, const void *bv2_, size_t s
   step = s2 - s1;
   mask = BV_MASK_HIGHER(T, BITS(T) - s2);
   if (s2 + l <= BITS(T)) {
-   if (s2 + l < BITS(T)) {
+   if (s2 + l < BITS(T))
     mask &= BV_MASK_LOWER(T, s2 + l);
-   }
    BV_EQ(T, *bv1 & (mask >> step), (*bv2 & mask) >> step);
   } else {
    l -= (BITS(T) - s2);
@@ -399,7 +433,8 @@ INLINE_DECLARE(int bv_eq(const void *bv1_, size_t s1, const void *bv2_, size_t s
     ins = *bv2 >> step;
     ++bv1; ++bv2;
    }
-   if (!offset) { offset += BITS(T); }
+   if (!offset)
+    offset += BITS(T);
    if (offset >= step) {
     mask = BV_MASK_LOWER(T, offset - step);
     BV_EQ_MASK(T, *bv1, ins, mask);
@@ -408,6 +443,7 @@ INLINE_DECLARE(int bv_eq(const void *bv1_, size_t s1, const void *bv2_, size_t s
     BV_EQ(T, *bv1 & ~(~mask << (BITS(T) - step)),
              ((*bv2 & mask) << (BITS(T) - step)) | ins);
    }
+/*   BV_EQ_RIGHT(T, bv1, bv2, l, step); */
   }
 
  } else { /* s1 > s2 */
@@ -415,9 +451,8 @@ INLINE_DECLARE(int bv_eq(const void *bv1_, size_t s1, const void *bv2_, size_t s
   step = s1 - s2;
   mask = BV_MASK_HIGHER(T, BITS(T) - s1);
   if (s1 + l <= BITS(T)) {
-   if (s1 + l < BITS(T)) {
+   if (s1 + l < BITS(T))
     mask &= BV_MASK_LOWER(T, s1 + l);
-   }
    BV_EQ(T, *bv1 & mask, (*bv2 & (mask >> step)) << step);
   } else {
    size_t pets = BITS(T) - step;
@@ -445,6 +480,7 @@ INLINE_DECLARE(int bv_eq(const void *bv1_, size_t s1, const void *bv2_, size_t s
      mask = BV_MASK_LOWER(T, offset);
      BV_EQ_MASK(T, *bv1, ins, mask);
     }
+/*    BV_EQ_LEFT(T, bv1, bv2, l, step); */
    }
   }
 
@@ -462,18 +498,18 @@ INLINE_DECLARE(void bv_fill(void *bv_, size_t s, size_t l, unsigned int f))
 #ifdef INLINE_DEFINE
 {
  size_t o, k;
- T mask, *bv = bv_;
+ T mask, *bv = (T *) bv_;
 
- if (f) { f = ~0; }
+ if (f)
+  f = ~0;
 
  bv += s / BITS(T);
  o   = s % BITS(T);
 
  mask = BV_MASK_HIGHER(T, BITS(T) - o);
  if (o + l <= BITS(T)) {
-  if (o + l < BITS(T)) {
+  if (o + l < BITS(T))
    mask &= BV_MASK_LOWER(T, o + l);
-  }
   *bv = (*bv & ~mask) | (f & mask);
  } else {
   *bv = (*bv & ~mask) | (f & mask);
@@ -489,6 +525,7 @@ INLINE_DECLARE(void bv_fill(void *bv_, size_t s, size_t l, unsigned int f))
   }
  }
 
+ return;
 }
 #endif /* INLINE_DEFINE */
 #undef T

@@ -1,5 +1,13 @@
 Revision history for Scalar-Vec-Util
 
+0.06    2009-05-17 19:20 UTC
+        + Add : The vshift() and vrot() functions.
+        + Chg : All functions now have prototypes.
+        + Chg : undef is no longer an invalid argument to the functions, but
+                offsets and lengths are now checked to be positive.
+        + Fix : Erroneous edge cases when copying bits in place.
+        + Upd : META.yml spec to 1.4.
+
 0.05    2008-06-03 11:40 UTC
         + Fix : make cover choked on t/02-pp.t.
 

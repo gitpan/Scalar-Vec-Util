@@ -6,11 +6,37 @@
 #include "perl.h"
 #include "XSUB.h"
 
-#define __PACKAGE__ "Scalar::Vec::Util"
+#define __PACKAGE__     "Scalar::Vec::Util"
+#define __PACKAGE_LEN__ (sizeof(__PACKAGE__)-1)
 
 #include "bitvect.h"
 
-STATIC const char svu_error_invarg[] = "Invalid argument";
+STATIC void svu_validate_uv(pTHX_ SV *sv, size_t *offset, const char *desc) {
+#define svu_validate_uv(S, O, D) svu_validate_uv(aTHX_ (S), (O), (D))
+ IV i;
+
+ if (SvOK(sv) && SvIOK(sv)) {
+  if (SvIsUV(sv))
+   *offset = SvUVX(sv);
+  else {
+   i = SvIVX(sv);
+   if (i < 0)
+    goto fail;
+   *offset = i;
+  }
+ } else {
+  i = SvIV(sv);
+  if (i < 0)
+   goto fail;
+  *offset = i;
+ }
+
+ return;
+
+fail:
+ *offset = 0;
+ croak("Invalid negative %s", desc ? desc : "integer");
+}
 
 /* --- XS ------------------------------------------------------------------ */
 
@@ -20,26 +46,24 @@ PROTOTYPES: ENABLE
 
 BOOT:
 {
- HV *stash = gv_stashpv(__PACKAGE__, 1);
+ HV *stash = gv_stashpvn(__PACKAGE__, __PACKAGE_LEN__, 1);
  newCONSTSUB(stash, "SVU_PP",   newSVuv(0));
  newCONSTSUB(stash, "SVU_SIZE", newSVuv(SVU_SIZE));
 }
 
 void
 vfill(SV *sv, SV *ss, SV *sl, SV *sf)
+PROTOTYPE: $$$$
 PREINIT:
  size_t s, l, n, o;
  char f, *v;
 CODE:
- if (!SvOK(sv) || !SvOK(ss) || !SvOK(sl) || !SvOK(sf)) {
-  croak(svu_error_invarg);
- }
-
- l = SvUV(sl);
- if (!l) { XSRETURN(0); }
- s = SvUV(ss);
+ svu_validate_uv(sl, &l, "length");
+ if (!l)
+  XSRETURN(0);
+ svu_validate_uv(ss, &s, "offset");
  f = SvTRUE(sf);
- if (SvTYPE(sv) < SVt_PV) { SvUPGRADE(sv, SVt_PV); }
+ SvUPGRADE(sv, SVt_PV);
 
  n = BV_SIZE(s + l);
  o = SvLEN(sv);
@@ -49,9 +73,8 @@ CODE:
  } else {
   v = SvPVX(sv);
  }
- if (SvCUR(sv) < n) {
+ if (SvCUR(sv) < n)
   SvCUR_set(sv, n);
- }
 
  bv_fill(v, s, l, f);
 
@@ -59,20 +82,18 @@ CODE:
 
 void
 vcopy(SV *sf, SV *sfs, SV *st, SV *sts, SV *sl)
+PROTOTYPE: $$$$$
 PREINIT:
  size_t fs, ts, l, lf = 0, n, o;
  char *t, *f;
 CODE:
- if (!SvOK(sf) || !SvOK(sfs) || !SvOK(st) || !SvOK(sts) || !SvOK(sl)) {
-  croak(svu_error_invarg);
- }
-
- l  = SvUV(sl);
- if (!l) { XSRETURN(0); }
- fs = SvUV(sfs);
- ts = SvUV(sts);
- if (SvTYPE(sf) < SVt_PV) { SvUPGRADE(sf, SVt_PV); }
- if (SvTYPE(st) < SVt_PV) { SvUPGRADE(st, SVt_PV); }
+ svu_validate_uv(sl, &l, "length");
+ if (!l)
+  XSRETURN(0);
+ svu_validate_uv(sfs, &fs, "offset");
+ svu_validate_uv(sts, &ts, "offset");
+ SvUPGRADE(sf, SVt_PV);
+ SvUPGRADE(st, SVt_PV);
 
  n  = BV_SIZE(ts + l);
  o  = SvLEN(st);
@@ -82,9 +103,8 @@ CODE:
  } else {
   t = SvPVX(st);
  }
- if (SvCUR(st) < n) {
+ if (SvCUR(st) < n)
   SvCUR_set(st, n);
- }
  f = SvPVX(sf); /* We do it there in case st == sf. */
 
  n  = BV_SIZE(fs + l);
@@ -108,19 +128,18 @@ CODE:
 
 SV *
 veq(SV *sv1, SV *ss1, SV *sv2, SV *ss2, SV *sl)
+PROTOTYPE: $$$$$
 PREINIT:
  size_t s1, s2, l, o, n;
  char *v1, *v2;
 CODE:
- if (!SvOK(sv1) || !SvOK(ss1) || !SvOK(sv2) || !SvOK(ss2) || !SvOK(sl)) {
-  croak(svu_error_invarg);
- }
-
- l  = SvUV(sl);
- s1 = SvUV(ss1);
- s2 = SvUV(ss2);
- if (SvTYPE(sv1) < SVt_PV) { SvUPGRADE(sv1, SVt_PV); }
- if (SvTYPE(sv2) < SVt_PV) { SvUPGRADE(sv2, SVt_PV); }
+ svu_validate_uv(sl, &l, "length");
+ if (!l)
+  XSRETURN_YES;
+ svu_validate_uv(ss1, &s1, "offset");
+ svu_validate_uv(ss2, &s2, "offset");
+ SvUPGRADE(sv1, SVt_PV);
+ SvUPGRADE(sv2, SVt_PV);
 
  n  = BV_SIZE(s1 + l);
  o  = SvLEN(sv1);

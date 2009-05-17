@@ -7,16 +7,12 @@ use Test::More 'no_plan';
 
 use Scalar::Vec::Util qw/SVU_SIZE/;
 
-eval { Scalar::Vec::Util::vcopy_pp(undef, 0, my $y, 0, 0) };
-like($@, qr/Invalid\s+argument/, 'first argument undef croaks');
-eval { Scalar::Vec::Util::vcopy_pp(my $x, undef, my $y, 0, 0) };
-like($@, qr/Invalid\s+argument/, 'second argument undef croaks');
-eval { Scalar::Vec::Util::vcopy_pp(my $x, 0, undef, 0, 0) };
-like($@, qr/Invalid\s+argument/, 'third argument undef croaks');
-eval { Scalar::Vec::Util::vcopy_pp(my $x, 0, my $y, undef, 0) };
-like($@, qr/Invalid\s+argument/, 'fourth argument undef croaks');
-eval { Scalar::Vec::Util::vcopy_pp(my $x, 0, my $y, 0, undef) };
-like($@, qr/Invalid\s+argument/, 'fifth argument undef croaks');
+for ([ 1, 'offset', -1 ], [ 3, 'offset', '-1' ], [ 4, 'length', -1 ]) {
+ my @args  = ('1') x 5;
+ $args[$_->[0]] = $_->[2];
+ eval { &Scalar::Vec::Util::vcopy_pp(@args) }; my $line = __LINE__;
+ like $@, qr/^Invalid\s+negative\s+$_->[1]\s+at\s+\Q$0\E\s+line\s+$line/;
+}
 
 my $p = SVU_SIZE;
 $p = 8 if $p < 8;

@@ -35,66 +35,87 @@ if ($cc) {
  print "none\n";
 }
 
-my $arch = $Config{archname} || '';
-my ($cpu) = $arch =~ /^([^-]+)/;
-
 my @DEFINES;
-my $unit = 8;
-if (unpack("h*", pack("s", 0x1234)) != 4321) {
+
+sub is_little_endian {
+ my $order = $Config{byteorder};
+ return 0 unless $order;
+ my $len = length $order;
+ if ($len > 8) {
+  $order = substr $order, 0, 8;
+  $len   = 8;
+ }
+ return $order eq (join '', 1 .. $len);
+}
+
+my $unit = { bits => 8, size => 1 };
+if (not is_little_endian()) {
  print "Forcing unit size of 8 on non-little-endian systems.\n";
 } else {
- my $align = int($Config{alignbytes} || 0);
  print "Checking unit size in bits... ";
- my @s = (8, 16, 32);
- push @s, 64 unless $^O eq 'MSWin32';
- for (@s) {
-  my $size = int($Config{'u' . $_ . 'size'} || 0);
-  $unit = $_ if $size && $size <= $align;
+ my $align = $Config{alignbytes} || 1;
+ my @bits = (8, 16, 32, 64);
+ for my $bits (@bits) {
+  my $size = $Config{"u${bits}size"};
+  next unless $size;
+  $unit = { bits => $bits, size => $size } if $size && $size <= $align;
  }
- print $unit, "\n";
+ print $unit->{bits},
+                " (actually $unit->{size} bytes for $align bytes alignment).\n";
 }
-push @DEFINES, DEFINE => '-DBV_UNIT="'
-                                 . ($unit == 64 ? 'uint64_t' : 'U' . $unit)
-                                 . '"'
-                      . ' -DSVU_SIZE=' . $unit;
 
-my $BUILD_REQUIRES = {
- 'Config'              => 0,
- 'ExtUtils::MakeMaker' => 0,
- 'File::Spec'          => 0,
- 'Test::More'          => 0,
-};
-
-sub build_req {
- my $tometa = ' >> $(DISTVNAME)/META.yml;';
- my $build_req = 'echo "build_requires:" ' . $tometa;
- foreach my $mod ( sort { lc $a cmp lc $b } keys %$BUILD_REQUIRES ) {
-  my $ver = $BUILD_REQUIRES->{$mod};
-  $build_req .= sprintf 'echo "    %-30s %s" %s', "$mod:", $ver, $tometa;
- }
- return $build_req;
+{
+ my $bits = $unit->{bits};
+ push @DEFINES, '-DBV_UNIT="' . ($Config{"u${bits}type"} || "U$bits") . '"';
+ push @DEFINES, "-DSVU_SIZE=$bits";
 }
+
+@DEFINES = (DEFINE => join ' ', @DEFINES) if @DEFINES;
+
+my $dist = 'Scalar-Vec-Util';
+
+my %META = (
+ configure_requires => {
+  'Config'              => 0,
+  'ExtUtils::MakeMaker' => 0,
+  'File::Spec'          => 0,
+ },
+ build_requires => {
+  'Config'              => 0,
+  'ExtUtils::MakeMaker' => 0,
+  'Test::More'          => 0,
+ },
+ resources => {
+  bugtracker => "http://rt.cpan.org/NoAuth/ReportBug.html?Queue=$dist",
+  homepage   => "http://search.cpan.org/dist/$dist/",
+  license    => 'http://dev.perl.org/licenses/',
+  repository => "http://git.profvince.com/?p=perl%2Fmodules%2F$dist.git",
+ },
+);
 
 WriteMakefile(
-    NAME          => 'Scalar::Vec::Util',
-    AUTHOR        => 'Vincent Pit <perl@profvince.com>',
-    LICENSE       => 'perl',
-    VERSION_FROM  => 'lib/Scalar/Vec/Util.pm',
-    ABSTRACT_FROM => 'lib/Scalar/Vec/Util.pm',
-    PL_FILES      => {},
-    C             => \@C,
+    NAME             => 'Scalar::Vec::Util',
+    AUTHOR           => 'Vincent Pit <perl@profvince.com>',
+    LICENSE          => 'perl',
+    VERSION_FROM     => 'lib/Scalar/Vec/Util.pm',
+    ABSTRACT_FROM    => 'lib/Scalar/Vec/Util.pm',
+    PL_FILES         => {},
+    C                => \@C,
     @DEFINES,
-    PREREQ_PM     => {
+    PREREQ_PM        => {
         'Exporter' => 0,
         'Carp'     => 0,
         'XSLoader' => 0
     },
-    dist          => {
-        PREOP      => 'pod2text lib/Scalar/Vec/Util.pm > $(DISTVNAME)/README; '
-                      . build_req,
-        COMPRESS   => 'gzip -9f', SUFFIX => 'gz'
+    MIN_PERL_VERSION => 5.006,
+    META_MERGE       => \%META,
+    dist             => {
+        PREOP    => 'pod2text lib/Scalar/Vec/Util.pm > $(DISTVNAME)/README',
+        COMPRESS => 'gzip -9f', SUFFIX => 'gz'
     },
-    clean         => { FILES => 'Scalar-Vec-Util-* *.gcov *.gcda *.gcno cover_db' },
+    clean            => {
+        FILES => "$dist-* *.gcov *.gcda *.gcno cover_db Debian_CPANTS.txt"
+    },
 );
 
 1;

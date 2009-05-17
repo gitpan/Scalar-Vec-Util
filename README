@@ -2,7 +2,7 @@ NAME
     Scalar::Vec::Util - Utility routines for vec strings.
 
 VERSION
-    Version 0.05
+    Version 0.06
 
 SYNOPSIS
         use Scalar::Vec::Util qw/vfill vcopy veq/;
@@ -42,7 +42,21 @@ FUNCTIONS
   "vcopy $from => $from_start, $to => $to_start, $length"
     Copies $length bits starting at $from_start in $from to $to_start in
     $to. If "$from_start + $length" is too long for $from, zeros are copied
-    past $length. Grows $to if necessary.
+    past $length. Grows $to if necessary. Doesn't need to allocate any extra
+    memory.
+
+  "vshift $v, $start, $length => $bits [, $insert ]"
+    In the area starting at $start and of length $length in $v, shift bits
+    "abs $bits" positions left if "$bits > 0" and right otherwise. If
+    $insert is defined, also fills the resulting gap with ones if $insert is
+    true and zeros if it's false. Bits outside of the specified area are
+    left untouched. Doesn't need to allocate any extra memory.
+
+  "vrot $v, $start, $length, $bits"
+    In the area starting at $start and of length $length in $v, rotates bits
+    "abs $bits" positions left if "$bits > 0" and right otherwise. Bits
+    outside of the specified area are left untouched. Currently allocates an
+    extra buffer of size "O($bits)".
 
   "veq $v1 => $v1_start, $v2 => $v2_start, $length"
     Returns true if the $length bits starting at $v1_start in $v1 and
@@ -50,15 +64,16 @@ FUNCTIONS
     decreased to fit inside $v1 and $v2 boundaries.
 
 EXPORT
-    The functions "vfill", "vcopy" and "veq" are only exported on request.
-    All of them are exported by the tags ':funcs' and ':all'.
+    The functions "vfill", "vcopy", "vshift", "vrot" and "veq" are only
+    exported on request. All of them are exported by the tags ':funcs' and
+    ':all'.
 
     The constants "SVU_PP" and "SVU_SIZE" are also only exported on request.
     They are all exported by the tags ':consts' and ':all'.
 
 BENCHMARKS
     The following timings were obtained by running the "samples/bench.pl"
-    script. The "_pp" entries are the pure Perl versions, while "_bv" are
+    script. The "_pp" entries are the pure Perl versions, whereas "_bv" are
     Bit::Vector versions.
 
     This is for perl 5.8.8 on a Core 2 Duo 2.66GHz machine (unit is 64
@@ -142,8 +157,7 @@ SEE ALSO
 AUTHOR
     Vincent Pit, "<perl at profvince.com>", <http://www.profvince.com>.
 
-    You can contact me by mail or on #perl @ FreeNode (vincent or
-    Prof_Vince).
+    You can contact me by mail or on "irc.perl.org" (vincent).
 
 BUGS
     Please report any bugs or feature requests to "bug-scalar-vec-util at
@@ -161,7 +175,7 @@ SUPPORT
     <http://www.profvince.com/perl/cover/Scalar-Vec-Util>.
 
 COPYRIGHT & LICENSE
-    Copyright 2008 Vincent Pit, all rights reserved.
+    Copyright 2008-2009 Vincent Pit, all rights reserved.
 
     This program is free software; you can redistribute it and/or modify it
     under the same terms as Perl itself.

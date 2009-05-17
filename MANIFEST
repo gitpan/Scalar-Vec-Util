@@ -20,7 +20,8 @@ t/30-vcopy-pp.t
 t/31-vcopy-copy.t
 t/32-vcopy-move.t
 t/33-vcopy-long.t
-t/90-boilerplate.t
+t/40-vshift.t
+t/50-vrot.t
 t/91-pod.t
 t/92-pod-coverage.t
 t/95-portability-files.t
