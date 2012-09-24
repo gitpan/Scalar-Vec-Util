@@ -12,9 +12,9 @@
 # define BV_UNIT unsigned char
 #endif
 
-#define BV_SIZE(I) ((((I) % CHAR_BIT) != 0) + ((I) / CHAR_BIT))
-
 #define BITS(T) (CHAR_BIT * sizeof(T))
+
+#define BV_SIZE(I) (((((I) % BITS(BV_UNIT)) != 0) + ((I) / BITS(BV_UNIT))) * sizeof(BV_UNIT))
 
 /* 0 <= I <  CHAR_BIT * sizeof(T) */
 #define BV_MASK_LOWER(T, I)  (~((~((T) 0)) << (I)))
@@ -332,6 +332,48 @@ INLINE_DECLARE(void bv_move(void *bv_, size_t ts, size_t fs, size_t l))
 #endif /* INLINE_DEFINE */
 #undef T
 
+/* ... Test if zero ........................................................ */
+
+#define T BV_UNIT
+INLINE_DECLARE(int bv_zero(const void *bv_, size_t s, size_t l))
+#ifdef INLINE_DEFINE
+{
+ size_t o;
+ T mask;
+ const T *bv = (const T *) bv_, *end;
+
+ bv += s / BITS(T);
+ o   = s % BITS(T);
+
+ mask = BV_MASK_HIGHER(T, BITS(T) - o);
+ if (o + l <= BITS(T)) {
+  if (o + l < BITS(T))
+   mask &= BV_MASK_LOWER(T, o + l);
+  if (*bv & mask)
+   return 0;
+ } else {
+  if (*bv & mask)
+   return 0;
+  ++bv;
+  l  -= (BITS(T) - o);
+  end = bv + l / BITS(T);
+  for (; bv < end; ++bv) {
+   if (*bv)
+    return 0;
+  }
+  o = l % BITS(T);
+  if (o) {
+   mask = BV_MASK_LOWER(T, o);
+   if (*bv & mask)
+    return 0;
+  }
+ }
+
+ return 1;
+}
+#endif /* INLINE_DEFINE */
+#undef T
+
 /* ... Compare ............................................................. */
 
 #define BV_EQ(T, B1, B2) \
@@ -501,7 +543,7 @@ INLINE_DECLARE(void bv_fill(void *bv_, size_t s, size_t l, unsigned int f))
  T mask, *bv = (T *) bv_;
 
  if (f)
-  f = ~0;
+  f = ~0u;
 
  bv += s / BITS(T);
  o   = s % BITS(T);

@@ -3,7 +3,7 @@ package Scalar::Vec::Util;
 use strict;
 use warnings;
 
-use Carp qw/croak/;
+use Carp qw<croak>;
 
 =head1 NAME
 
@@ -11,13 +11,13 @@ Scalar::Vec::Util - Utility routines for vec strings.
 
 =head1 VERSION
 
-Version 0.06
+Version 0.07
 
 =cut
 
 our $VERSION;
 BEGIN {
- $VERSION = '0.06';
+ $VERSION = '0.07';
  eval {
   require XSLoader;
   XSLoader::load(__PACKAGE__, $VERSION);
@@ -33,7 +33,7 @@ BEGIN {
 
 =head1 SYNOPSIS
 
-    use Scalar::Vec::Util qw/vfill vcopy veq/;
+    use Scalar::Vec::Util qw<vfill vcopy veq>;
 
     my $s;
     vfill $s, 0, 100, 1; # Fill with 100 bits 1 starting at 0.
@@ -105,7 +105,7 @@ sub vcopy_pp ($$$$$) {
  croak 'Invalid negative offset' if $fs < 0 or $ts < 0;
  croak 'Invalid negative length' if $l  < 0;
  my $step = $ts - $fs;
- if ($step <= 0) { 
+ if ($step <= 0) {
   vec($_[2], $_ + $step, 1) = vec($_[0], $_, 1) for $fs .. $fs + $l - 1;
  } else { # There's a risk of overwriting if $_[0] and $_[2] are the same SV.
   vec($_[2], $_ + $step, 1) = vec($_[0], $_, 1) for reverse $fs .. $fs + $l - 1;
@@ -207,12 +207,12 @@ They are all exported by the tags C<':consts'> and C<':all'>.
 
 =cut
 
-use base qw/Exporter/;
+use base qw<Exporter>;
 
 our @EXPORT         = ();
 our %EXPORT_TAGS    = (
- 'funcs'  => [ qw/vfill vcopy vshift vrot veq/ ],
- 'consts' => [ qw/SVU_PP SVU_SIZE/ ]
+ 'funcs'  => [ qw<vfill vcopy vshift vrot veq> ],
+ 'consts' => [ qw<SVU_PP SVU_SIZE> ]
 );
 our @EXPORT_OK      = map { @$_ } values %EXPORT_TAGS;
 $EXPORT_TAGS{'all'} = [ @EXPORT_OK ];
@@ -303,6 +303,11 @@ I'll add exceptions for them.
 
 =head1 DEPENDENCIES
 
+L<perl> 5.6.
+
+A C compiler.
+This module may happen to build with a C++ compiler as well, but don't rely on it, as no guarantee is made in this regard.
+
 L<Carp>, L<Exporter> (core modules since perl 5), L<XSLoader> (since perl 5.006).
 
 =head1 SEE ALSO
@@ -330,7 +335,7 @@ Tests code coverage report is available at L<http://www.profvince.com/perl/cover
 
 =head1 COPYRIGHT & LICENSE
 
-Copyright 2008-2009 Vincent Pit, all rights reserved.
+Copyright 2008,2009,2010,2011,2012 Vincent Pit, all rights reserved.
 
 This program is free software; you can redistribute it and/or modify it under the same terms as Perl itself.
 

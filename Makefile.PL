@@ -7,33 +7,41 @@ use ExtUtils::MakeMaker;
 BEGIN {
  eval { require Config };
  die 'OS unsupported' if $@;
- Config->import(qw/%Config/);
+ Config->import(qw<%Config>);
  eval { require File::Spec };
  die 'OS unsupported' if $@;
 }
 
-# Inspired from Module::Install::Can
-print "Checking for a valid C compiler in the PATH... ";
-my @ccs = ($Config{cc});
-unshift @ccs, $ENV{CC} if $ENV{CC};
 my $cc;
-CC:
-for my $c (@ccs) {
- for my $dir (split /$Config{path_sep}/, $ENV{PATH}) {
-  my $abs = File::Spec->catfile($dir, $c);
-  if (-x $abs or MM->maybe_command($abs)) {
-   $cc = $c;
-   last CC;
-  }
+for (@ARGV) {
+ if (/^CC=(.*)/) {
+  $cc = $1;
+  last;
  }
 }
-my @C;
-if ($cc) {
- push @C, 'Util.c';
- print $cc, "\n";
+if (defined $cc) {
+ print "Forcing the use of $cc as the C compiler.\n";
 } else {
- print "none\n";
+ # Inspired from Module::Install::Can
+ print "Checking for a valid C compiler in the PATH... ";
+ my @ccs = ($Config{cc});
+ unshift @ccs, $ENV{CC} if $ENV{CC};
+CC:
+ for my $c (@ccs) {
+  for my $dir (split /$Config{path_sep}/, $ENV{PATH}) {
+   my $abs = File::Spec->catfile($dir, $c);
+   if (-x $abs or MM->maybe_command($abs)) {
+    $cc = $c;
+    print $cc, "\n";
+    last CC;
+   }
+  }
+ }
+ print "none\n" unless defined $cc;
 }
+
+my @C;
+push @C, 'Util.c' if defined $cc;
 
 my @DEFINES;
 
@@ -74,6 +82,18 @@ if (not is_little_endian()) {
 
 my $dist = 'Scalar-Vec-Util';
 
+(my $name = $dist) =~ s{-}{::}g;
+
+(my $file = $dist) =~ s{-}{/}g;
+$file = "lib/$file.pm";
+
+my %PREREQ_PM = (
+ 'Exporter' => 0,
+ 'Carp'     => 0,
+ 'XSLoader' => 0,
+ 'base'     => 0,
+);
+
 my %META = (
  configure_requires => {
   'Config'              => 0,
@@ -84,7 +104,9 @@ my %META = (
   'Config'              => 0,
   'ExtUtils::MakeMaker' => 0,
   'Test::More'          => 0,
+  %PREREQ_PM,
  },
+ dynamic_config => 1,
  resources => {
   bugtracker => "http://rt.cpan.org/NoAuth/ReportBug.html?Queue=$dist",
   homepage   => "http://search.cpan.org/dist/$dist/",
@@ -94,28 +116,24 @@ my %META = (
 );
 
 WriteMakefile(
-    NAME             => 'Scalar::Vec::Util',
-    AUTHOR           => 'Vincent Pit <perl@profvince.com>',
-    LICENSE          => 'perl',
-    VERSION_FROM     => 'lib/Scalar/Vec/Util.pm',
-    ABSTRACT_FROM    => 'lib/Scalar/Vec/Util.pm',
-    PL_FILES         => {},
-    C                => \@C,
-    @DEFINES,
-    PREREQ_PM        => {
-        'Exporter' => 0,
-        'Carp'     => 0,
-        'XSLoader' => 0
-    },
-    MIN_PERL_VERSION => 5.006,
-    META_MERGE       => \%META,
-    dist             => {
-        PREOP    => 'pod2text lib/Scalar/Vec/Util.pm > $(DISTVNAME)/README',
-        COMPRESS => 'gzip -9f', SUFFIX => 'gz'
-    },
-    clean            => {
-        FILES => "$dist-* *.gcov *.gcda *.gcno cover_db Debian_CPANTS.txt"
-    },
+ NAME             => $name,
+ AUTHOR           => 'Vincent Pit <perl@profvince.com>',
+ LICENSE          => 'perl',
+ VERSION_FROM     => $file,
+ ABSTRACT_FROM    => $file,
+ PL_FILES         => {},
+ C                => \@C,
+ @DEFINES,
+ PREREQ_PM        => \%PREREQ_PM,
+ MIN_PERL_VERSION => '5.006',
+ META_MERGE       => \%META,
+ dist             => {
+  PREOP    => "pod2text -u $file > \$(DISTVNAME)/README",
+  COMPRESS => 'gzip -9f', SUFFIX => 'gz'
+ },
+ clean            => {
+  FILES => "$dist-* *.gcov *.gcda *.gcno cover_db Debian_CPANTS.txt*"
+ },
 );
 
 1;
@@ -124,7 +142,7 @@ package MY;
 
 sub postamble {
  my $cv = join ' -coverage ', 'cover',
-                            qw/statement branch condition path subroutine time/;
+                            qw<statement branch condition path subroutine time>;
  <<POSTAMBLE;
 cover test_cover:
 	$cv -test

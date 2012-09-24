@@ -2,10 +2,10 @@ NAME
     Scalar::Vec::Util - Utility routines for vec strings.
 
 VERSION
-    Version 0.06
+    Version 0.07
 
 SYNOPSIS
-        use Scalar::Vec::Util qw/vfill vcopy veq/;
+        use Scalar::Vec::Util qw<vfill vcopy veq>;
 
         my $s;
         vfill $s, 0, 100, 1; # Fill with 100 bits 1 starting at 0.
@@ -149,6 +149,11 @@ CAVEATS
     unit. I'll add exceptions for them.
 
 DEPENDENCIES
+    perl 5.6.
+
+    A C compiler. This module may happen to build with a C++ compiler as
+    well, but don't rely on it, as no guarantee is made in this regard.
+
     Carp, Exporter (core modules since perl 5), XSLoader (since perl 5.006).
 
 SEE ALSO
@@ -175,7 +180,7 @@ SUPPORT
     <http://www.profvince.com/perl/cover/Scalar-Vec-Util>.
 
 COPYRIGHT & LICENSE
-    Copyright 2008-2009 Vincent Pit, all rights reserved.
+    Copyright 2008,2009,2010,2011,2012 Vincent Pit, all rights reserved.
 
     This program is free software; you can redistribute it and/or modify it
     under the same terms as Perl itself.

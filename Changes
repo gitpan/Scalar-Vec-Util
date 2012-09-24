@@ -1,5 +1,14 @@
 Revision history for Scalar-Vec-Util
 
+0.07    2012-09-24 23:50 UTC
+        + Chg : Arguments to vcopy() and veq() are now upgraded to strings if
+                necessary.
+        + Doc : C++ compilers are officially NOT supported.
+        + Fix : vcopy() and veq() will now work properly if the source and/or
+                the target areas are out of the bounds of the given scalars.
+        + Tst : Test::Leaner is used to run lengthy tests.
+        + Tst : Author tests overhaul.
+
 0.06    2009-05-17 19:20 UTC
         + Add : The vshift() and vrot() functions.
         + Chg : All functions now have prototypes.

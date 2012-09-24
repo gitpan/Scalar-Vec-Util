@@ -11,31 +11,56 @@
 
 #include "bitvect.h"
 
-STATIC void svu_validate_uv(pTHX_ SV *sv, size_t *offset, const char *desc) {
-#define svu_validate_uv(S, O, D) svu_validate_uv(aTHX_ (S), (O), (D))
+STATIC size_t svu_validate_uv(pTHX_ SV *sv, const char *desc) {
+#define svu_validate_uv(S, D) svu_validate_uv(aTHX_ (S), (D))
  IV i;
 
  if (SvOK(sv) && SvIOK(sv)) {
   if (SvIsUV(sv))
-   *offset = SvUVX(sv);
+   return SvUVX(sv);
   else {
    i = SvIVX(sv);
-   if (i < 0)
-    goto fail;
-   *offset = i;
+   if (i >= 0)
+    return i;
   }
  } else {
   i = SvIV(sv);
-  if (i < 0)
-   goto fail;
-  *offset = i;
+  if (i >= 0)
+   return i;
  }
 
- return;
-
-fail:
- *offset = 0;
  croak("Invalid negative %s", desc ? desc : "integer");
+ return 0;
+}
+
+STATIC char *svu_prepare_sv(pTHX_ SV *sv, size_t s, size_t l) {
+#define svu_prepare_sv(S, I, L) svu_prepare_sv(aTHX_ (S), (I), (L))
+ STRLEN  c;
+ size_t  n = s + l, i, js, jz, k, z;
+ char   *p;
+
+ SvUPGRADE(sv, SVt_PV);
+
+ p = SvGROW(sv, BV_SIZE(n));
+ c = SvCUR(sv);
+
+ js = (s / BITS(BV_UNIT)) * sizeof(BV_UNIT);
+ k  = js + sizeof(BV_UNIT);
+ for (i = c < js ? js : c; i < k; ++i)
+  p[i] = 0;
+
+ jz = ((s + l - 1) / BITS(BV_UNIT)) * sizeof(BV_UNIT);
+ if (jz > js) {
+  k = jz + sizeof(BV_UNIT);
+  for (i = c < jz ? jz : c; i < k; ++i)
+   p[i] = 0;
+ }
+
+ z = 1 + ((s + l - 1) / CHAR_BIT);
+ if (c < z)
+  SvCUR_set(sv, z);
+
+ return p;
 }
 
 /* --- XS ------------------------------------------------------------------ */
@@ -55,26 +80,15 @@ void
 vfill(SV *sv, SV *ss, SV *sl, SV *sf)
 PROTOTYPE: $$$$
 PREINIT:
- size_t s, l, n, o;
+ size_t s, l;
  char f, *v;
 CODE:
- svu_validate_uv(sl, &l, "length");
+ l = svu_validate_uv(sl, "length");
  if (!l)
   XSRETURN(0);
- svu_validate_uv(ss, &s, "offset");
+ s = svu_validate_uv(ss, "offset");
+ v = svu_prepare_sv(sv, s, l);
  f = SvTRUE(sf);
- SvUPGRADE(sv, SVt_PV);
-
- n = BV_SIZE(s + l);
- o = SvLEN(sv);
- if (n > o) {
-  v = SvGROW(sv, n);
-  Zero(v + o, n - o, char);
- } else {
-  v = SvPVX(sv);
- }
- if (SvCUR(sv) < n)
-  SvCUR_set(sv, n);
 
  bv_fill(v, s, l, f);
 
@@ -84,78 +98,90 @@ void
 vcopy(SV *sf, SV *sfs, SV *st, SV *sts, SV *sl)
 PROTOTYPE: $$$$$
 PREINIT:
- size_t fs, ts, l, lf = 0, n, o;
- char *t, *f;
+ size_t fs, ts, l, e, lf, cf;
+ char *vt, *vf;
 CODE:
- svu_validate_uv(sl, &l, "length");
+ l = svu_validate_uv(sl, "length");
  if (!l)
   XSRETURN(0);
- svu_validate_uv(sfs, &fs, "offset");
- svu_validate_uv(sts, &ts, "offset");
+ fs = svu_validate_uv(sfs, "offset");
+ ts = svu_validate_uv(sts, "offset");
+
  SvUPGRADE(sf, SVt_PV);
- SvUPGRADE(st, SVt_PV);
+ vt = svu_prepare_sv(st, ts, l);
 
- n  = BV_SIZE(ts + l);
- o  = SvLEN(st);
- if (n > o) {
-  t = SvGROW(st, n);
-  Zero(t + o, n - o, char);
- } else {
-  t = SvPVX(st);
- }
- if (SvCUR(st) < n)
-  SvCUR_set(st, n);
- f = SvPVX(sf); /* We do it there in case st == sf. */
+ /* We fetch vf after upgrading st in case st == sf. */
+ vf = SvPVX(sf);
+ cf = SvCUR(sf) * CHAR_BIT;
+ lf = fs + l;
+ e  = lf > cf ? lf - cf : 0;
+ l  =  l > e  ?  l - e  : 0;
 
- n  = BV_SIZE(fs + l);
- o  = SvLEN(sf);
- if (n > o) {
-  lf = fs + l - o * CHAR_BIT;
-  l  = o * CHAR_BIT - fs;
+ if (l) {
+  if (vf == vt)
+   bv_move(vf, ts, fs, l);
+  else
+   bv_copy(vt, ts, vf, fs, l);
  }
 
- if (f == t) {
-  bv_move(f, ts, fs, l);
- } else {
-  bv_copy(t, ts, f, fs, l);
- }
-
- if (lf) {
-  bv_fill(t, ts + l, lf, 0);
- }
+ if (e)
+  bv_fill(vt, ts + l, e, 0);
 
  XSRETURN(0);
 
-SV *
+void
 veq(SV *sv1, SV *ss1, SV *sv2, SV *ss2, SV *sl)
 PROTOTYPE: $$$$$
 PREINIT:
- size_t s1, s2, l, o, n;
- char *v1, *v2;
+ size_t s1, s2, l, l1, l2, c1, c2, e1, e2, e;
+ int    res = 1;
+ char  *v1, *v2;
 CODE:
- svu_validate_uv(sl, &l, "length");
+ l = svu_validate_uv(sl, "length");
  if (!l)
-  XSRETURN_YES;
- svu_validate_uv(ss1, &s1, "offset");
- svu_validate_uv(ss2, &s2, "offset");
+  goto done;
+ s1 = svu_validate_uv(ss1, "offset");
+ s2 = svu_validate_uv(ss2, "offset");
+
  SvUPGRADE(sv1, SVt_PV);
  SvUPGRADE(sv2, SVt_PV);
-
- n  = BV_SIZE(s1 + l);
- o  = SvLEN(sv1);
- if (n > o) {
-  l = o * CHAR_BIT - s1;
- }
-
- n  = BV_SIZE(s2 + l);
- o  = SvLEN(sv2);
- if (n > o) {
-  l = o * CHAR_BIT - s2;
- }
-
  v1 = SvPVX(sv1);
  v2 = SvPVX(sv2);
+ c1 = SvCUR(sv1) * CHAR_BIT;
+ c2 = SvCUR(sv2) * CHAR_BIT;
 
- RETVAL = newSVuv(bv_eq(v1, s1, v2, s2, l));
-OUTPUT:
- RETVAL
+ redo:
+ l1 = s1 + l;
+ l2 = s2 + l;
+ e1 = l1 > c1 ? l1 - c1 : 0;
+ e2 = l2 > c2 ? l2 - c2 : 0;
+ e  = e1 > e2 ? e1 : e2;
+
+ if (l > e) {
+  size_t p = l - e;
+
+  res = bv_eq(v1, s1, v2, s2, p);
+  if (!res || e == 0)
+   goto done;
+
+  /* Bit vectors are equal up to p < l */
+  s1 += p;
+  s2 += p;
+  l   = e;
+  goto redo;
+ }
+
+ /* l <= max(e1, e2), at least one of the vectors is completely out of bounds */
+ e = e1 < e2 ? e1 : e2;
+ if (l > e) {
+  size_t q = l - e;
+
+  if (s1 < c1)
+   res = bv_zero(v1, s1, q);
+  else if (s2 < c2)
+   res = bv_zero(v2, s2, q);
+ }
+
+ done:
+ ST(0) = res ? &PL_sv_yes : &PL_sv_no;
+ XSRETURN(1);
