@@ -11,13 +11,13 @@ Scalar::Vec::Util - Utility routines for vec strings.
 
 =head1 VERSION
 
-Version 0.07
+Version 0.08
 
 =cut
 
 our $VERSION;
 BEGIN {
- $VERSION = '0.07';
+ $VERSION = '0.08';
  eval {
   require XSLoader;
   XSLoader::load(__PACKAGE__, $VERSION);
@@ -40,35 +40,38 @@ BEGIN {
     my $t;
     vcopy $s, 20, $t, 10, 30; # Copy 30 bits from $s, starting at 20,
                               #                to $t, starting at 10.
-    vcopy $t, 10, $t, 20, 30; # Overalapping areas DWIM.
+    vcopy $t, 10, $t, 20, 30; # Overlapping areas DWIM.
     if (veq $t, 10, $t, 20, 30) { ... } # Yes, they are equal now.
 
 =head1 DESCRIPTION
 
-A set of utilities to manipulate bits in vec strings.
-Highly optimized XS routines are used when available, but straightforward pure perl replacements are also provided for platforms without a C compiler.
+This module provides a set of utility routines that efficiently manipulate bits in vec strings.
+Highly optimized XS functions are used whenever possible, but straightforward pure Perl replacements are also available for platforms without a C compiler.
 
-This module doesn't reimplement bit vectors.
-It can be used on the very same scalars that C<vec> builds, or actually on any Perl string (C<SVt_PV>).
+Note that this module does not aim at reimplementing bit vectors : all its functions can be used on any Perl string, just like L<perlfunc/vec>.
 
 =head1 CONSTANTS
 
 =head2 C<SVU_PP>
 
-True when pure perl fallbacks are used instead of XS functions.
+True when pure Perl fallbacks are used instead of XS functions.
 
 =head2 C<SVU_SIZE>
 
-Size in bits of the unit used for moves.
+The size (in bits) of the unit used for bit operations.
 The higher this value is, the faster the XS functions are.
-It's usually C<CHAR_BIT * $Config{alignbytes}>, except on non-little-endian architectures where it currently falls back to C<CHAR_BIT> (e.g. SPARC).
+It is usually C<CHAR_BIT * $Config{alignbytes}>, except on non-little-endian architectures where it currently falls back to C<CHAR_BIT> (e.g. SPARC).
 
 =head1 FUNCTIONS
 
-=head2 C<vfill $vec, $start, $length, $bit>
+=head2 C<vfill>
 
-Starting at C<$start> in C<$vec>, fills C<$length> bits with C<$bit>.
-Grows C<$vec> if necessary.
+    vfill $vec, $start, $length, $bit;
+
+Starting at C<$start> in C<$vec>, fills C<$length> bits with ones if C<$bit> is true and with zeros if C<$bit> is false.
+
+C<$vec> is upgraded to a string and extended if necessary.
+Bits that are outside of the specified area are left untouched.
 
 =cut
 
@@ -90,12 +93,21 @@ sub vfill_pp ($$$$) {
  }
 }
 
-=head2 C<< vcopy $from => $from_start, $to => $to_start, $length >>
+=head2 C<vcopy>
+
+    vcopy $from => $from_start, $to => $to_start, $length;
 
 Copies C<$length> bits starting at C<$from_start> in C<$from> to C<$to_start> in C<$to>.
-If C<$from_start + $length> is too long for C<$from>, zeros are copied past C<$length>.
-Grows C<$to> if necessary.
-Doesn't need to allocate any extra memory.
+
+C<$from> and C<$to> are allowed to be the same scalar, and the given areas can rightfully overlap.
+
+C<$from> is upgraded to a string if it isn't one already.
+If C<$from_start + $length> goes out of the bounds of C<$from>, then the extra bits are treated as zeros.
+C<$to> is upgraded to a string and extended if necessary.
+The content of C<$from> is not modified, except when it is equal to C<$to>.
+Bits that are outside of the specified area are left untouched.
+
+This function does not need to allocate any extra memory.
 
 =cut
 
@@ -112,12 +124,19 @@ sub vcopy_pp ($$$$$) {
  }
 }
 
-=head2 C<< vshift $v, $start, $length => $bits [, $insert ] >>
+=head2 C<vshift>
+
+    vshift $v, $start, $length => $bits, $insert;
 
 In the area starting at C<$start> and of length C<$length> in C<$v>, shift bits C<abs $bits> positions left if C<< $bits > 0 >> and right otherwise.
-If C<$insert> is defined, also fills the resulting gap with ones if C<$insert> is true and zeros if it's false.
-Bits outside of the specified area are left untouched.
-Doesn't need to allocate any extra memory.
+
+When C<$insert> is defined, the resulting gap is also filled with ones if C<$insert> is true and with zeros if C<$insert> is false.
+
+C<$v> is upgraded to a string if it isn't one already.
+If C<$start + $length> goes out of the bounds of C<$v>, then the extra bits are treated as zeros.
+Bits that are outside of the specified area are left untouched.
+
+This function does not need to allocate any extra memory.
 
 =cut
 
@@ -145,11 +164,17 @@ sub vshift ($$$$;$) {
  }
 }
 
-=head2 C<< vrot $v, $start, $length, $bits >>
+=head2 C<vrot>
+
+    vrot $v, $start, $length, $bits;
 
 In the area starting at C<$start> and of length C<$length> in C<$v>, rotates bits C<abs $bits> positions left if C<< $bits > 0 >> and right otherwise.
-Bits outside of the specified area are left untouched.
-Currently allocates an extra buffer of size C<O($bits)>.
+
+C<$v> is upgraded to a string if it isn't one already.
+If C<$start + $length> goes out of the bounds of C<$v>, then the extra bits are treated as zeros.
+Bits that are outside of the specified area are left untouched.
+
+This function currently allocates an extra buffer of size C<O($bits)>.
 
 =cut
 
@@ -178,10 +203,16 @@ sub vrot ($$$$) {
  }
 }
 
-=head2 C<< veq $v1 => $v1_start, $v2 => $v2_start, $length >>
+=head2 C<veq>
+
+    veq $v1 => $v1_start, $v2 => $v2_start, $length;
 
 Returns true if the C<$length> bits starting at C<$v1_start> in C<$v1> and C<$v2_start> in C<$v2> are equal, and false otherwise.
-If needed, C<$length> is decreased to fit inside C<$v1> and C<$v2> boundaries.
+
+C<$v1> and C<$v2> are upgraded to strings if they aren't already, but their contents are never modified.
+If C<$v1_start + $length> (respectively C<$v2_start + $length>) goes out of the bounds of C<$v1> (respectively C<$v2>), then the extra bits are treated as zeros.
+
+This function does not need to allocate any extra memory.
 
 =cut
 
@@ -224,7 +255,9 @@ The C<_pp> entries are the pure Perl versions, whereas C<_bv> are L<Bit::Vector>
 
 =over 4
 
-=item This is for perl 5.8.8 on a Core 2 Duo 2.66GHz machine (unit is 64 bits).
+=item *
+
+This is for perl 5.8.8 on a Core 2 Duo 2.66GHz machine (unit is 64 bits).
 
     Filling bits at a given position :
                   Rate vfill_pp vfill_bv    vfill
@@ -238,19 +271,23 @@ The C<_pp> entries are the pure Perl versions, whereas C<_bv> are L<Bit::Vector>
     vcopy_bv  62599/s   55622%       --     -89%
     vcopy    558491/s  497036%     792%       --
 
-    Moving bits in the same bit vector from a given position to a different one :
+    Moving bits in the same bit vector from a given position
+    to a different one :
                  Rate vmove_pp vmove_bv    vmove
     vmove_pp   64.8/s       --    -100%    -100%
     vmove_bv  64742/s   99751%       --     -88%
     vmove    547980/s  845043%     746%       --
 
-    Testing bit equality from different positions of different bit vectors :
+    Testing bit equality from different positions of different
+    bit vectors :
                Rate  veq_pp  veq_bv     veq
     veq_pp   92.7/s      --   -100%   -100%
     veq_bv  32777/s  35241%      --    -94%
     veq    505828/s 545300%   1443%      --
 
-=item This is for perl 5.10.0 on a Pentium 4 3.0GHz (unit is 32 bits).
+=item *
+
+This is for perl 5.10.0 on a Pentium 4 3.0GHz (unit is 32 bits).
 
                  Rate vfill_pp vfill_bv    vfill
     vfill_pp    185/s       --    -100%    -100%
@@ -272,7 +309,9 @@ The C<_pp> entries are the pure Perl versions, whereas C<_bv> are L<Bit::Vector>
     veq_bv  17518/s  51190%      --    -91%
     veq    192181/s 562591%    997%      --
 
-=item This is for perl 5.10.0 on an UltraSPARC-IIi (unit is 8 bits).
+=item *
+
+This is for perl 5.10.0 on an UltraSPARC-IIi (unit is 8 bits).
 
                 Rate vfill_pp    vfill vfill_bv
     vfill_pp  4.23/s       --    -100%    -100%
@@ -308,7 +347,7 @@ L<perl> 5.6.
 A C compiler.
 This module may happen to build with a C++ compiler as well, but don't rely on it, as no guarantee is made in this regard.
 
-L<Carp>, L<Exporter> (core modules since perl 5), L<XSLoader> (since perl 5.006).
+L<Carp>, L<Exporter> (core modules since perl 5), L<XSLoader> (since perl 5.6.0).
 
 =head1 SEE ALSO
 
@@ -335,7 +374,7 @@ Tests code coverage report is available at L<http://www.profvince.com/perl/cover
 
 =head1 COPYRIGHT & LICENSE
 
-Copyright 2008,2009,2010,2011,2012 Vincent Pit, all rights reserved.
+Copyright 2008,2009,2010,2011,2012,2013 Vincent Pit, all rights reserved.
 
 This program is free software; you can redistribute it and/or modify it under the same terms as Perl itself.
 

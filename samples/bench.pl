@@ -226,7 +226,16 @@ if (HAS_BV) {
  $bv1->Fill();
  $bv2->Fill();
 }
-print "eq:\n";
+
+print "eq, origin:\n";
+cmpthese $run, {
+ veq     => sub { veq $x, 0, $y, 0, $n },
+ veq_pp  => sub { Scalar::Vec::Util::veq_pp($x, 0, $y, 0, $n) },
+ (veq_bv => sub { $bv1->equal($bv2) }) x HAS_BV,
+};
+print "\n";
+
+print "eq, random:\n";
 cmpthese $run, {
  veq     => sub { veq $x, inc($i), $y, inc($j), len($i, $j) },
  veq_pp  => sub { Scalar::Vec::Util::veq_pp($x, inc($i), $y, inc($j), len($i, $j)) },
@@ -241,3 +250,4 @@ cmpthese $run, {
    $bv3->equal($bv4);
   }) x HAS_BV,
 };
+print "\n";

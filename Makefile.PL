@@ -4,12 +4,11 @@ use strict;
 use warnings;
 use ExtUtils::MakeMaker;
 
+use Config;
+
 BEGIN {
- eval { require Config };
- die 'OS unsupported' if $@;
- Config->import(qw<%Config>);
- eval { require File::Spec };
- die 'OS unsupported' if $@;
+ local $@;
+ eval { require File::Spec; 1 } or die 'OS unsupported';
 }
 
 my $cc;
@@ -94,6 +93,14 @@ my %PREREQ_PM = (
  'base'     => 0,
 );
 
+my %BUILD_REQUIRES = (
+ 'Config'              => 0,
+ 'ExtUtils::MakeMaker' => 0,
+ 'File::Spec'          => 0,
+ 'Test::More'          => 0,
+ %PREREQ_PM,
+);
+
 my %META = (
  configure_requires => {
   'Config'              => 0,
@@ -101,14 +108,11 @@ my %META = (
   'File::Spec'          => 0,
  },
  build_requires => {
-  'Config'              => 0,
-  'ExtUtils::MakeMaker' => 0,
-  'Test::More'          => 0,
-  %PREREQ_PM,
+  %BUILD_REQUIRES,
  },
  dynamic_config => 1,
  resources => {
-  bugtracker => "http://rt.cpan.org/NoAuth/ReportBug.html?Queue=$dist",
+  bugtracker => "http://rt.cpan.org/Dist/Display.html?Name=$dist",
   homepage   => "http://search.cpan.org/dist/$dist/",
   license    => 'http://dev.perl.org/licenses/',
   repository => "http://git.profvince.com/?p=perl%2Fmodules%2F$dist.git",
@@ -124,6 +128,7 @@ WriteMakefile(
  PL_FILES         => {},
  C                => \@C,
  @DEFINES,
+ BUILD_REQUIRES   => \%BUILD_REQUIRES,
  PREREQ_PM        => \%PREREQ_PM,
  MIN_PERL_VERSION => '5.006',
  META_MERGE       => \%META,

@@ -2,7 +2,7 @@ NAME
     Scalar::Vec::Util - Utility routines for vec strings.
 
 VERSION
-    Version 0.07
+    Version 0.08
 
 SYNOPSIS
         use Scalar::Vec::Util qw<vfill vcopy veq>;
@@ -12,56 +12,97 @@ SYNOPSIS
         my $t;
         vcopy $s, 20, $t, 10, 30; # Copy 30 bits from $s, starting at 20,
                                   #                to $t, starting at 10.
-        vcopy $t, 10, $t, 20, 30; # Overalapping areas DWIM.
+        vcopy $t, 10, $t, 20, 30; # Overlapping areas DWIM.
         if (veq $t, 10, $t, 20, 30) { ... } # Yes, they are equal now.
 
 DESCRIPTION
-    A set of utilities to manipulate bits in vec strings. Highly optimized
-    XS routines are used when available, but straightforward pure perl
-    replacements are also provided for platforms without a C compiler.
+    This module provides a set of utility routines that efficiently
+    manipulate bits in vec strings. Highly optimized XS functions are used
+    whenever possible, but straightforward pure Perl replacements are also
+    available for platforms without a C compiler.
 
-    This module doesn't reimplement bit vectors. It can be used on the very
-    same scalars that "vec" builds, or actually on any Perl string
-    ("SVt_PV").
+    Note that this module does not aim at reimplementing bit vectors : all
+    its functions can be used on any Perl string, just like "vec" in
+    perlfunc.
 
 CONSTANTS
   "SVU_PP"
-    True when pure perl fallbacks are used instead of XS functions.
+    True when pure Perl fallbacks are used instead of XS functions.
 
   "SVU_SIZE"
-    Size in bits of the unit used for moves. The higher this value is, the
-    faster the XS functions are. It's usually "CHAR_BIT *
+    The size (in bits) of the unit used for bit operations. The higher this
+    value is, the faster the XS functions are. It is usually "CHAR_BIT *
     $Config{alignbytes}", except on non-little-endian architectures where it
     currently falls back to "CHAR_BIT" (e.g. SPARC).
 
 FUNCTIONS
-  "vfill $vec, $start, $length, $bit"
-    Starting at $start in $vec, fills $length bits with $bit. Grows $vec if
-    necessary.
+  "vfill"
+        vfill $vec, $start, $length, $bit;
 
-  "vcopy $from => $from_start, $to => $to_start, $length"
+    Starting at $start in $vec, fills $length bits with ones if $bit is true
+    and with zeros if $bit is false.
+
+    $vec is upgraded to a string and extended if necessary. Bits that are
+    outside of the specified area are left untouched.
+
+  "vcopy"
+        vcopy $from => $from_start, $to => $to_start, $length;
+
     Copies $length bits starting at $from_start in $from to $to_start in
-    $to. If "$from_start + $length" is too long for $from, zeros are copied
-    past $length. Grows $to if necessary. Doesn't need to allocate any extra
-    memory.
+    $to.
 
-  "vshift $v, $start, $length => $bits [, $insert ]"
+    $from and $to are allowed to be the same scalar, and the given areas can
+    rightfully overlap.
+
+    $from is upgraded to a string if it isn't one already. If "$from_start +
+    $length" goes out of the bounds of $from, then the extra bits are
+    treated as zeros. $to is upgraded to a string and extended if necessary.
+    The content of $from is not modified, except when it is equal to $to.
+    Bits that are outside of the specified area are left untouched.
+
+    This function does not need to allocate any extra memory.
+
+  "vshift"
+        vshift $v, $start, $length => $bits, $insert;
+
     In the area starting at $start and of length $length in $v, shift bits
-    "abs $bits" positions left if "$bits > 0" and right otherwise. If
-    $insert is defined, also fills the resulting gap with ones if $insert is
-    true and zeros if it's false. Bits outside of the specified area are
-    left untouched. Doesn't need to allocate any extra memory.
+    "abs $bits" positions left if "$bits > 0" and right otherwise.
 
-  "vrot $v, $start, $length, $bits"
+    When $insert is defined, the resulting gap is also filled with ones if
+    $insert is true and with zeros if $insert is false.
+
+    $v is upgraded to a string if it isn't one already. If "$start +
+    $length" goes out of the bounds of $v, then the extra bits are treated
+    as zeros. Bits that are outside of the specified area are left
+    untouched.
+
+    This function does not need to allocate any extra memory.
+
+  "vrot"
+        vrot $v, $start, $length, $bits;
+
     In the area starting at $start and of length $length in $v, rotates bits
-    "abs $bits" positions left if "$bits > 0" and right otherwise. Bits
-    outside of the specified area are left untouched. Currently allocates an
-    extra buffer of size "O($bits)".
+    "abs $bits" positions left if "$bits > 0" and right otherwise.
 
-  "veq $v1 => $v1_start, $v2 => $v2_start, $length"
+    $v is upgraded to a string if it isn't one already. If "$start +
+    $length" goes out of the bounds of $v, then the extra bits are treated
+    as zeros. Bits that are outside of the specified area are left
+    untouched.
+
+    This function currently allocates an extra buffer of size "O($bits)".
+
+  "veq"
+        veq $v1 => $v1_start, $v2 => $v2_start, $length;
+
     Returns true if the $length bits starting at $v1_start in $v1 and
-    $v2_start in $v2 are equal, and false otherwise. If needed, $length is
-    decreased to fit inside $v1 and $v2 boundaries.
+    $v2_start in $v2 are equal, and false otherwise.
+
+    $v1 and $v2 are upgraded to strings if they aren't already, but their
+    contents are never modified. If "$v1_start + $length" (respectively
+    "$v2_start + $length") goes out of the bounds of $v1 (respectively $v2),
+    then the extra bits are treated as zeros.
+
+    This function does not need to allocate any extra memory.
 
 EXPORT
     The functions "vfill", "vcopy", "vshift", "vrot" and "veq" are only
@@ -76,8 +117,9 @@ BENCHMARKS
     script. The "_pp" entries are the pure Perl versions, whereas "_bv" are
     Bit::Vector versions.
 
-    This is for perl 5.8.8 on a Core 2 Duo 2.66GHz machine (unit is 64
-    bits).
+    *   This is for perl 5.8.8 on a Core 2 Duo 2.66GHz machine (unit is 64
+        bits).
+
             Filling bits at a given position :
                           Rate vfill_pp vfill_bv    vfill
             vfill_pp    80.3/s       --    -100%    -100%
@@ -90,19 +132,22 @@ BENCHMARKS
             vcopy_bv  62599/s   55622%       --     -89%
             vcopy    558491/s  497036%     792%       --
 
-            Moving bits in the same bit vector from a given position to a different one :
+            Moving bits in the same bit vector from a given position
+            to a different one :
                          Rate vmove_pp vmove_bv    vmove
             vmove_pp   64.8/s       --    -100%    -100%
             vmove_bv  64742/s   99751%       --     -88%
             vmove    547980/s  845043%     746%       --
 
-            Testing bit equality from different positions of different bit vectors :
+            Testing bit equality from different positions of different
+            bit vectors :
                        Rate  veq_pp  veq_bv     veq
             veq_pp   92.7/s      --   -100%   -100%
             veq_bv  32777/s  35241%      --    -94%
             veq    505828/s 545300%   1443%      --
 
-    This is for perl 5.10.0 on a Pentium 4 3.0GHz (unit is 32 bits).
+    *   This is for perl 5.10.0 on a Pentium 4 3.0GHz (unit is 32 bits).
+
                          Rate vfill_pp vfill_bv    vfill
             vfill_pp    185/s       --    -100%    -100%
             vfill_bv 407979/s  220068%       --     -16%
@@ -123,7 +168,8 @@ BENCHMARKS
             veq_bv  17518/s  51190%      --    -91%
             veq    192181/s 562591%    997%      --
 
-    This is for perl 5.10.0 on an UltraSPARC-IIi (unit is 8 bits).
+    *   This is for perl 5.10.0 on an UltraSPARC-IIi (unit is 8 bits).
+
                         Rate vfill_pp    vfill vfill_bv
             vfill_pp  4.23/s       --    -100%    -100%
             vfill    30039/s  709283%       --     -17%
@@ -154,7 +200,7 @@ DEPENDENCIES
     A C compiler. This module may happen to build with a C++ compiler as
     well, but don't rely on it, as no guarantee is made in this regard.
 
-    Carp, Exporter (core modules since perl 5), XSLoader (since perl 5.006).
+    Carp, Exporter (core modules since perl 5), XSLoader (since perl 5.6.0).
 
 SEE ALSO
     Bit::Vector gives a complete reimplementation of bit vectors.
@@ -180,7 +226,8 @@ SUPPORT
     <http://www.profvince.com/perl/cover/Scalar-Vec-Util>.
 
 COPYRIGHT & LICENSE
-    Copyright 2008,2009,2010,2011,2012 Vincent Pit, all rights reserved.
+    Copyright 2008,2009,2010,2011,2012,2013 Vincent Pit, all rights
+    reserved.
 
     This program is free software; you can redistribute it and/or modify it
     under the same terms as Perl itself.
